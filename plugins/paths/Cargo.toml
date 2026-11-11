@@ -1,0 +1,14 @@
+[package]
+name = "elmee-plugin-paths"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Where Elmee keeps a project's state outside its checkout"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+elmee-core = { version = "0.1.0", path = "../../core" }
+
+[dev-dependencies]
+tempfile = "3"

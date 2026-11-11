@@ -1,0 +1,154 @@
+{
+ "elmee": {
+  "init_ms": 3.737584687769413,
+  "new_ms": 5.6522078812122345,
+  "ready_ms": 9.389792568981647,
+  "first_turn_ms": 26.180332526564598,
+  "warm_first_chunk_ms": 1.048749778419733,
+  "warm_turn_ms": 15.439437236636877,
+  "warm_p90_ms": 15.749791637063026,
+  "steps8_ms": 197.48079124838114,
+  "steps_ok": true,
+  "second_new_ms": 0.8644573390483856,
+  "idle_rss_mb": 7.0,
+  "processes": 1,
+  "protocol": 1,
+  "capabilities": {
+   "loadSession": true,
+   "mcpCapabilities": {
+    "http": true,
+    "sse": false
+   },
+   "promptCapabilities": {
+    "audio": false,
+    "embeddedContext": true,
+    "image": true
+   },
+   "sessionCapabilities": {
+    "close": {},
+    "delete": {},
+    "list": {},
+    "resume": {}
+   }
+  },
+  "auth": [
+   "codex"
+  ]
+ },
+ "codex": {
+  "init_ms": 110.72283238172531,
+  "new_ms": 17.826417461037636,
+  "ready_ms": 128.54924984276295,
+  "first_turn_ms": 20.98687458783388,
+  "warm_first_chunk_ms": 2.7165208011865616,
+  "warm_turn_ms": 15.12695848941803,
+  "warm_p90_ms": 15.955457463860512,
+  "steps8_ms": 460.75179148465395,
+  "steps_ok": true,
+  "second_new_ms": 5.374542437493801,
+  "idle_rss_mb": 234.84375,
+  "processes": 2,
+  "protocol": 1,
+  "capabilities": {
+   "auth": {
+    "logout": {}
+   },
+   "providers": {},
+   "loadSession": true,
+   "promptCapabilities": {
+    "embeddedContext": true,
+    "image": true
+   },
+   "sessionCapabilities": {
+    "resume": {},
+    "list": {},
+    "close": {},
+    "delete": {},
+    "fork": {},
+    "title": {},
+    "additionalDirectories": {},
+    "subagents": {},
+    "systemPrompt": {}
+   },
+   "mcpCapabilities": {
+    "acp": false,
+    "http": true,
+    "sse": false
+   },
+   "_meta": {
+    "authStatus": {}
+   }
+  },
+  "auth": [
+   "api-key",
+   "chat-gpt"
+  ]
+ },
+ "claude": {
+  "init_ms": 167.1373751014471,
+  "new_ms": 124.013083986938,
+  "ready_ms": 291.1504590883851,
+  "first_turn_ms": 44.43991743028164,
+  "warm_first_chunk_ms": 7.940958254039288,
+  "warm_turn_ms": 9.070978965610266,
+  "warm_p90_ms": 10.226917453110218,
+  "steps8_ms": 187.41241563111544,
+  "steps_ok": true,
+  "second_new_ms": 109.77091733366251,
+  "idle_rss_mb": 644.9375,
+  "processes": 3,
+  "protocol": 1,
+  "capabilities": {
+   "_meta": {
+    "claudeCode": {
+     "promptQueueing": true
+    },
+    "authStatus": {}
+   },
+   "promptCapabilities": {
+    "image": true,
+    "embeddedContext": true
+   },
+   "mcpCapabilities": {
+    "http": true,
+    "sse": true
+   },
+   "auth": {
+    "logout": {},
+    "status": {}
+   },
+   "providers": {},
+   "loadSession": true,
+   "sessionCapabilities": {
+    "additionalDirectories": {},
+    "close": {},
+    "delete": {},
+    "fork": {},
+    "list": {},
+    "resume": {},
+    "systemPrompt": {
+     "mode": {
+      "override": {}
+     }
+    }
+   }
+  },
+  "auth": []
+ },
+ "pi": {
+  "init_ms": null,
+  "new_ms": null,
+  "ready_ms": null,
+  "first_turn_ms": 150.7885828614235,
+  "cold_to_first_answer_ms": 152.68045850098133,
+  "warm_first_chunk_ms": 1.260500866919756,
+  "warm_turn_ms": 1.3141464442014694,
+  "warm_p90_ms": 1.833207905292511,
+  "steps8_ms": 25.08579194545746,
+  "steps_ok": true,
+  "second_new_ms": null,
+  "idle_rss_mb": 172.6875,
+  "processes": 1,
+  "protocol": "pi-rpc"
+ }
+}

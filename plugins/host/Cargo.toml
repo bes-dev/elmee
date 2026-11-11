@@ -1,0 +1,32 @@
+[package]
+name = "elmee-host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Process host and turn driver shared by Elmee frontends"
+license.workspace = true
+repository.workspace = true
+
+[features]
+# Running other agents: subagents this session starts, and the project mesh
+# they and independently started agents answer each other through.
+default = ["agents"]
+agents = ["dep:elmee-plugin-mesh", "dep:elmee-plugin-project"]
+
+[dependencies]
+elmee-core = { version = "0.1.0", path = "../../core" }
+elmee-plugin-atomic = { version = "0.1.0", path = "../atomic" }
+elmee-plugin-command = { version = "0.1.0", path = "../command" }
+elmee-plugin-tools = { version = "0.1.0", path = "../tools" }
+elmee-plugin-provider = { version = "0.1.0", path = "../provider" }
+elmee-plugin-project = { version = "0.1.0", path = "../project", optional = true }
+elmee-plugin-paths = { version = "0.1.0", path = "../paths" }
+elmee-plugin-mesh = { version = "0.1.0", path = "../mesh", optional = true }
+elmee-plugin-session = { version = "0.1.0", path = "../session" }
+elmee-plugin-snapshot = { version = "0.1.0", path = "../snapshot" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["fs", "io-util", "macros", "process", "rt", "sync", "time"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }

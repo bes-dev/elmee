@@ -1,0 +1,44 @@
+[package]
+name = "elmee"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "A small coding agent assembled from Elmee plugins"
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "elmee"
+path = "src/main.rs"
+
+[features]
+# The terminal interface. Without it the binary is the embeddable agent alone:
+# ACP on stdio and one-shot runs.
+default = ["tui", "agents"]
+tui = ["dep:elmee-frontend-tui"]
+# Subagents and the project mesh. Without it a session is one agent.
+agents = ["elmee-host/agents", "dep:elmee-plugin-mesh"]
+
+[dependencies]
+elmee-core = { version = "0.1.0", path = "../../core" }
+elmee-frontend-headless = { version = "0.1.0", path = "../../plugins/headless" }
+elmee-frontend-acp = { version = "0.1.0", path = "../../plugins/acp" }
+elmee-frontend-tui = { version = "0.1.0", path = "../../plugins/tui", optional = true }
+elmee-host = { version = "0.1.0", path = "../../plugins/host", default-features = false }
+elmee-plugin-paths = { version = "0.1.0", path = "../../plugins/paths" }
+elmee-plugin-goal = { version = "0.1.0", path = "../../plugins/goal" }
+elmee-plugin-ledger = { version = "0.1.0", path = "../../plugins/ledger" }
+elmee-plugin-mcp = { version = "0.1.0", path = "../../plugins/mcp" }
+elmee-plugin-mesh = { version = "0.1.0", path = "../../plugins/mesh", optional = true }
+elmee-plugin-project = { version = "0.1.0", path = "../../plugins/project" }
+elmee-plugin-provider = { version = "0.1.0", path = "../../plugins/provider" }
+elmee-plugin-search = { version = "0.1.0", path = "../../plugins/search" }
+elmee-plugin-session = { version = "0.1.0", path = "../../plugins/session" }
+elmee-plugin-snapshot = { version = "0.1.0", path = "../../plugins/snapshot" }
+elmee-plugin-tools = { version = "0.1.0", path = "../../plugins/tools" }
+elmee-plugin-web = { version = "0.1.0", path = "../../plugins/web" }
+serde_json = "1"
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "rt", "time"] }
+
+[dev-dependencies]
+jsonschema = { version = "0.53", default-features = false }

@@ -1,0 +1,14 @@
+[package]
+name = "elmee-plugin-snapshot"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "External git working-tree snapshot plugin for Elmee"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde_json = "1"
+elmee-core = { version = "0.1.0", path = "../../core" }
+elmee-plugin-paths = { version = "0.1.0", path = "../paths" }
+tokio = { version = "1", features = ["macros", "process", "rt"] }

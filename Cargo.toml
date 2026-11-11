@@ -1,0 +1,39 @@
+[workspace]
+members = [
+    "core",
+    "plugins/*",
+    "apps/*",
+]
+default-members = ["apps/elmee"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "Apache-2.0"
+repository = "https://github.com/bes-dev/elmee"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# A debug build of this workspace had grown to 81 GB: 49 in `deps` and 32 in
+# `incremental`. Both are caches, and neither was buying what it cost.
+[profile.dev]
+# Line tables keep a backtrace's file and line — which is all anyone reads here
+# — without the full type and variable description that a stepping debugger
+# needs and nobody in this project has used.
+debug = "line-tables-only"
+# The incremental cache is per-crate state kept to make *editing* fast. Work
+# here is mostly whole-workspace check/test/clippy runs, often from a cold
+# checkout, so it was 32 GB of state that a full run reads almost none of.
+incremental = false
+
+# Dependencies are never stepped into and their backtraces are noise, so they
+# get no debug information at all. The wildcard covers dependencies only;
+# workspace members keep the line tables set above.
+[profile.dev.package."*"]
+debug = false

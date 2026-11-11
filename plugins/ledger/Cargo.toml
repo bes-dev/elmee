@@ -1,0 +1,11 @@
+[package]
+name = "elmee-plugin-ledger"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Append-only shared token budget ledger plugin for Elmee"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+elmee-core = { version = "0.1.0", path = "../../core" }

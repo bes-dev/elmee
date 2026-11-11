@@ -1,0 +1,14 @@
+/target/
+# Run state — sessions, locks, inboxes, task records.
+/.elmee/
+/.browser-cmd/
+# Raw benchmark runs from one machine; the scripts are in benchmarks/harnesses.
+/benchmarks/speed/
+__pycache__/
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.tokens

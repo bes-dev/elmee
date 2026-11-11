@@ -1,0 +1,13 @@
+[package]
+name = "elmee-plugin-session"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Append-only JSONL session persistence plugin for Elmee"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+elmee-core = { version = "0.1.0", path = "../../core" }
+serde_json = "1"
+rustix = { version = "1.1.4", features = ["fs"] }

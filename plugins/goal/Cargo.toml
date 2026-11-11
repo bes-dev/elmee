@@ -1,0 +1,15 @@
+[package]
+name = "elmee-plugin-goal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Standing-objective continuation policy plugin for Elmee"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+elmee-core = { version = "0.1.0", path = "../../core" }
+serde_json = "1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }

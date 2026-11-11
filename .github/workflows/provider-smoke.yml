@@ -1,0 +1,29 @@
+name: Provider smoke
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+
+jobs:
+  api-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: rustup toolchain install stable --profile minimal
+      - run: cargo build --release --locked
+      - name: Configure OpenAI API provider
+        if: env.OPENAI_API_KEY != ''
+        run: |
+          mkdir -p "$HOME/.elmee"
+          printf '%s\n' '{"providers":{"openai-api":{"baseUrl":"https://api.openai.com/v1","api":"openai-completions","apiKeyEnv":"OPENAI_API_KEY","models":[{"id":"gpt-4.1-mini","contextWindow":1047576}]}}}' > "$HOME/.elmee/models.json"
+          target/release/elmee --no-session --permission-mode read-only -m openai-api/gpt-4.1-mini "Reply with exactly: elmee-smoke-ok" | grep -F elmee-smoke-ok
+      - name: Smoke Anthropic API provider
+        if: env.ANTHROPIC_API_KEY != ''
+        run: |
+          target/release/elmee --no-session --permission-mode read-only -m anthropic/claude-haiku-4-5 "Reply with exactly: elmee-smoke-ok" | grep -F elmee-smoke-ok

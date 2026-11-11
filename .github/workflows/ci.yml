@@ -1,0 +1,56 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: ${{ matrix.os }} / stable
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      # The embeddable agent alone: no terminal interface, no other agents.
+      - run: cargo clippy -p elmee --no-default-features --locked -- -D warnings
+      - run: cargo test --workspace --all-targets --locked -- --test-threads=1
+
+  # The oldest toolchain the manifests promise. Checked, not assumed: stable
+  # moves on and nothing else here would notice a feature it gained since.
+  msrv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: rustup toolchain install 1.89 --profile minimal
+      - run: cargo +1.89 check --workspace --all-targets --locked
+
+  # The statically linked build releases ship. Built here so that a change
+  # which breaks it is found on the push that made it, not on a tag.
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: rustup toolchain install stable --profile minimal --target x86_64-unknown-linux-musl
+      - run: sudo apt-get update && sudo apt-get install --yes musl-tools
+      - run: cargo build --locked --target x86_64-unknown-linux-musl -p elmee
+      - run: target/x86_64-unknown-linux-musl/debug/elmee --version
+
+  dependency-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: EmbarkStudios/cargo-deny-action@b66acf5e9fe20f8aba065be86778a8a4c846f902 # v2

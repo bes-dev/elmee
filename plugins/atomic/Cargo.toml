@@ -1,0 +1,12 @@
+[package]
+name = "elmee-plugin-atomic"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Crash-safe whole-file replacement mechanism for Elmee"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = "1"
+serde_json = "1"
