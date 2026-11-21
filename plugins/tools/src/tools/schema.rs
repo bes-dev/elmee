@@ -40,7 +40,7 @@ pub(super) fn definitions() -> Vec<Value> {
              from top to bottom. Context and removed lines match exactly; use `@@` followed by an \
              unique exact complete line from the file to start a hunk after that line. A first hunk that \
              occurs more than once needs an anchor; later hunks use the first match after the \
-             preceding one. To undo your own work, patch it back — never git reset --hard or git \
+             preceding one. A hunk of only + lines and no @@ appends to the file. To undo your own work, patch it back — never git reset --hard or git \
              checkout --, which throw away everyone else's too. The patch is one string:\n\
              *** Begin Patch\n\
              *** Add File: path/to/new.rs\n\

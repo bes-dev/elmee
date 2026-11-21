@@ -293,6 +293,46 @@ async fn an_exact_anchor_selects_between_repeated_text() {
     fs::remove_dir_all(root).unwrap();
 }
 
+/// Seven of seven tool failures in a 1611-call benchmark were notes appended
+/// this way: additions under a bare `@@`, or no envelope around the patch.
+#[tokio::test]
+async fn a_hunk_of_only_additions_appends_and_the_envelope_may_be_left_out() {
+    let root = std::env::temp_dir().join(elmee_core::unique("patch-append"));
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("NOTES.md"), "# Notes\n- first").unwrap();
+    let mut tools = ToolSet::discover(root.clone()).unwrap();
+    let appended = tools
+        .execute(&patching("0", "*** Begin Patch\n*** Update File: NOTES.md\n@@\n+- second\n*** End Patch"))
+        .await;
+    assert!(appended.1, "{appended:?}");
+    let bare = tools.execute(&patching("1", "*** Update File: NOTES.md\n+- third\n*** End Patch")).await;
+    assert!(bare.1, "{bare:?}");
+    let unclosed = tools.execute(&patching("2", "*** Update File: NOTES.md\n+- fourth")).await;
+    assert!(unclosed.1, "{unclosed:?}");
+    assert_eq!(
+        fs::read_to_string(root.join("NOTES.md")).unwrap(),
+        "# Notes\n- first\n- second\n- third\n- fourth\n"
+    );
+
+    let cut_off = tools.execute(&patching("3", "*** Begin Patch\n*** Update File: NOTES.md\n+- lost")).await;
+    assert!(!cut_off.1 && cut_off.0.contains("must end with"), "an opened envelope may be a cut-off patch");
+    let prose = tools.execute(&patching("4", "Here is the patch:\n*** Update File: NOTES.md\n+x")).await;
+    assert!(!prose.1 && prose.0.contains("must start with"), "{prose:?}");
+    let empty = tools.execute(&patching("5", "*** Update File: NOTES.md\n@@")).await;
+    assert!(!empty.1 && empty.0.contains("has no lines"), "{empty:?}");
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn a_hunk_that_does_not_match_is_shown_the_nearest_text_or_the_file_s_end() {
+    let file = "# Notes\n\n## Search\n  - price: 10\n- url: a\n\n## Result\n- final\n";
+    let near = edit(file, "- price: 10\n- url: b", "x", 0, true).unwrap_err();
+    assert!(near.contains("closest current text:\n     4 |   - price: 10\n     5 | - url: a"), "{near}");
+    let tail = edit(file, "- nowhere", "x", 0, true).unwrap_err();
+    assert!(tail.contains("the file ends:\n     6 | \n     7 | ## Result\n     8 | - final"), "{tail}");
+    assert!(edit("", "- nowhere", "x", 0, true).unwrap_err().contains("the file is empty"));
+}
+
 /// The shell as something that can be held a conversation with: started
 /// without waiting, typed to, followed, and ended.
 #[tokio::test]

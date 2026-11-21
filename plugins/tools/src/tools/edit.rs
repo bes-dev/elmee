@@ -33,7 +33,7 @@ pub(super) fn edit(
     let Some(&index) = matches.first() else {
         return Err(format!(
             "expected text was not found after the preceding hunk; it must match exactly{}",
-            window(content, &source, from, expected.len())
+            window(content, &source, from, &expected)
         ));
     };
     if require_unique && matches.len() > 1 {
@@ -98,18 +98,34 @@ fn line_spans(content: &str) -> Vec<Line> {
     lines
 }
 
-fn window(content: &str, lines: &[Line], from: usize, wanted: usize) -> String {
+/// What the file holds where the hunk was expected, so the retry can anchor:
+/// the first line after the search position that matches one of the
+/// expected lines once indentation is ignored — or, when none does, the
+/// file's last lines. Lines at the search position say nothing for a first
+/// hunk, which searches from the top, and the end is where an addition can
+/// always be anchored.
+fn window(content: &str, lines: &[Line], from: usize, expected: &[&str]) -> String {
     const MAX_LINES: usize = 8;
-    let Some(first) = lines.iter().position(|line| line.start >= from) else {
-        return "; the search position is at end of file".into();
+    if lines.is_empty() {
+        return "; the file is empty".into();
+    }
+    let text = |line: &Line| &content[line.start..line.body_end];
+    let near = lines.iter().position(|line| {
+        line.start >= from
+            && !text(line).trim().is_empty()
+            && expected.iter().any(|wanted| wanted.trim() == text(line).trim())
+    });
+    let shown = expected.len().clamp(3, MAX_LINES);
+    let (first, place) = match near {
+        Some(index) => (index, "the closest current text"),
+        None => (lines.len().saturating_sub(shown), "no line matches; the file ends"),
     };
-    let shown = wanted.clamp(1, MAX_LINES);
     let body = lines[first..]
         .iter()
         .take(shown)
         .enumerate()
-        .map(|(offset, line)| format!("{:>6} | {}", first + offset + 1, &content[line.start..line.body_end]))
+        .map(|(offset, line)| format!("{:>6} | {}", first + offset + 1, text(line)))
         .collect::<Vec<_>>()
         .join("\n");
-    format!("; current text at the search position:\n{body}")
+    format!("; {place}:\n{body}")
 }

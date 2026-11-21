@@ -14,7 +14,8 @@
 //!
 //! Hunks are placed exactly and in order. An `@@` header is an exact source
 //! line after which that hunk must occur; the preceding hunk is the implicit
-//! lower bound when there is no header.
+//! lower bound when there is no header. A hunk of only additions and no
+//! header is appended to the end of the file.
 
 use std::path::{Path, PathBuf};
 
@@ -142,25 +143,30 @@ pub(super) fn apply(workspace: &mut Workspace, args: &PatchArgs) -> Result<Strin
                     }
                     let old = hunk.old.join("\n");
                     if old.is_empty() {
-                        if hunk.anchor.is_some() {
-                            let ending = if text[..cursor].ends_with("\r\n") { "\r\n" } else { "\n" };
-                            let mut new = hunk.new.join("\n").replace('\n', ending);
-                            if cursor > 0 && !text[..cursor].ends_with('\n') {
-                                new.insert_str(0, ending);
-                            }
-                            if !new.is_empty() && !new.ends_with(ending) {
-                                new.push_str(ending);
-                            }
-                            text.insert_str(cursor, &new);
-                            cursor += new.len();
-                            continue;
+                        if hunk.new.is_empty() {
+                            return Err(Error::Tool(format!(
+                                "hunk {} of {} in {} has no lines; give it lines to add, remove or keep",
+                                index + 1,
+                                change.hunks.len(),
+                                change.path
+                            )));
                         }
-                        return Err(Error::Tool(format!(
-                            "hunk {} of {} in {} has neither text to replace nor an @@ anchor",
-                            index + 1,
-                            change.hunks.len(),
-                            change.path
-                        )));
+                        // Only additions and no anchor is how models write
+                        // "append to this file", and it is what Codex does.
+                        if hunk.anchor.is_none() {
+                            cursor = text.len();
+                        }
+                        let ending = if text[..cursor].ends_with("\r\n") { "\r\n" } else { "\n" };
+                        let mut new = hunk.new.join("\n").replace('\n', ending);
+                        if cursor > 0 && !text[..cursor].ends_with('\n') {
+                            new.insert_str(0, ending);
+                        }
+                        if !new.ends_with(ending) {
+                            new.push_str(ending);
+                        }
+                        text.insert_str(cursor, &new);
+                        cursor += new.len();
+                        continue;
                     }
                     let (after, next) =
                         edit(&text, &old, &hunk.new.join("\n"), cursor, index == 0 && hunk.anchor.is_none())
@@ -239,9 +245,19 @@ pub(super) fn apply(workspace: &mut Workspace, args: &PatchArgs) -> Result<Strin
 }
 
 pub fn parse(text: &str) -> Result<Vec<Change>> {
-    let mut lines = text.lines().skip_while(|line| line.trim().is_empty());
-    if lines.next().map(str::trim_end) != Some(BEGIN) {
-        return Err(Error::Tool(format!("a patch must start with {BEGIN}")));
+    let mut lines = text.lines().skip_while(|line| line.trim().is_empty()).peekable();
+    // A patch that leaves out the envelope but opens on a file header reads
+    // one way only. One that opens the envelope and never closes it may have
+    // been cut off, so that still needs its end.
+    let enveloped = lines.next_if(|line| line.trim_end() == BEGIN).is_some();
+    if !enveloped
+        && !lines
+            .peek()
+            .is_some_and(|line| [ADD, UPDATE, DELETE].iter().any(|header| line.starts_with(header)))
+    {
+        return Err(Error::Tool(format!(
+            "a patch must start with {BEGIN}, or with its first *** Add/Update/Delete File: line"
+        )));
     }
     let mut changes: Vec<Change> = Vec::new();
     let mut ended = false;
@@ -320,7 +336,7 @@ pub fn parse(text: &str) -> Result<Vec<Change>> {
             }
         }
     }
-    if !ended {
+    if enveloped && !ended {
         return Err(Error::Tool(format!("a patch must end with {END}")));
     }
     if changes.is_empty() {
