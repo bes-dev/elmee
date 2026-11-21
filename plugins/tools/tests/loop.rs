@@ -131,6 +131,61 @@ async fn a_viewed_image_reaches_the_next_model_request_as_image_content() {
     let _ = fs::remove_dir_all(cwd);
 }
 
+/// The second picture costs no extra turn: the command that drew it shows it.
+#[tokio::test]
+async fn a_screenshot_command_brings_its_picture_to_the_next_request() {
+    struct Screenshots(std::cell::Cell<usize>);
+
+    #[elmee_core::async_trait(?Send)]
+    impl Provider for Screenshots {
+        async fn complete(
+            &self,
+            messages: &[Message],
+            _: &[serde_json::Value],
+            _: &mut (dyn for<'chunk> FnMut(Chunk<'chunk>) + Send),
+        ) -> Result<AssistantTurn> {
+            let step = self.0.replace(self.0.get() + 1);
+            Ok(match step {
+                0 => calling(vec![ToolCall::new("view", "view_image", r#"{"path":"page.gif"}"#)]),
+                1 => calling(vec![ToolCall::new(
+                    "shot",
+                    "exec",
+                    r#"{"command":"cp page.gif shot.gif && echo Saved to $(pwd)/shot.gif"}"#,
+                )]),
+                _ => {
+                    let pictured = messages.last().expect("a message after the result");
+                    assert_eq!(pictured.images.len(), 1, "{pictured:?}");
+                    assert!(pictured.content.as_deref().is_some_and(|text| text.contains("shot")));
+                    AssistantTurn::text("seen")
+                }
+            })
+        }
+
+        fn set_model(&mut self, _: String) {}
+
+        async fn list_models(&self) -> Result<Vec<elmee_core::provider::Model>> {
+            Ok(Vec::new())
+        }
+    }
+
+    let cwd = scratch("screenshot-loop");
+    fs::write(cwd.join("page.gif"), b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b").unwrap();
+    let mut builder = elmee_core::AgentBuilder::new("system");
+    builder.plugin(ModelPlugin(Screenshots(std::cell::Cell::new(0)))).unwrap();
+    builder.plugin(ToolSet::discover(cwd.clone()).unwrap()).unwrap();
+    let mut agent = builder.build().unwrap();
+    let answer = agent
+        .run_interactive(
+            "look at the page".into(),
+            &mut |_| {},
+            &mut elmee_core::interaction::RejectInteractions,
+        )
+        .await
+        .unwrap();
+    assert_eq!(answer, "seen");
+    let _ = fs::remove_dir_all(cwd);
+}
+
 /// The snapshot is started before the model call and settled before the first
 /// tool. What matters is that the overlap did not cost correctness: the
 /// recorded tree must still be the one the turn began with, not one a tool has

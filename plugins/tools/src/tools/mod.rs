@@ -40,11 +40,28 @@ static TOOL_TIMEOUT: std::sync::LazyLock<Duration> = std::sync::LazyLock::new(||
 pub struct ToolSet {
     workspace: Workspace,
     definitions: Vec<Value>,
+    /// Whether a picture fits in what one tool result may add.
+    pictures_fit: bool,
+    /// Whether the model has asked to see an image. Nothing says which models
+    /// accept images, and one that does not fails the whole request, so a
+    /// picture is only shown unasked to a model that has already asked.
+    viewed_image: bool,
 }
 
 impl ToolSet {
     pub fn discover(cwd: PathBuf) -> Result<Self> {
-        Ok(Self { workspace: Workspace::new(cwd.canonicalize()?)?, definitions: definitions() })
+        Ok(Self {
+            workspace: Workspace::new(cwd.canonicalize()?)?,
+            definitions: definitions(),
+            pictures_fit: true,
+            viewed_image: false,
+        })
+    }
+
+    /// Size what a command's result may carry to the agent's compaction
+    /// threshold, the way the agent sizes every result.
+    pub fn fit_to(&mut self, compact_chars: usize) {
+        self.pictures_fit = elmee_core::output_ceiling(compact_chars) >= elmee_core::session::IMAGE_CHARS;
     }
 
     /// Offer the host's own tools to the model alongside the built-ins. They
@@ -76,6 +93,7 @@ impl ToolSet {
                 .and_then(|path| images::load(&path));
             return match image {
                 Ok(image) => {
+                    self.viewed_image = true;
                     let mut outcome = elmee_core::ToolOutcome::new("Image attached for inspection", true);
                     outcome.images.push(image);
                     outcome
@@ -85,8 +103,22 @@ impl ToolSet {
         }
         // How it went is reported, not inferred: a consumer that has to read
         // the output to find out is one string away from being wrong.
+        let began = std::time::SystemTime::now();
         match self.try_execute(call).await {
-            Ok(output) => elmee_core::ToolOutcome::new(truncate(output), true),
+            Ok(output) => {
+                let mut outcome = elmee_core::ToolOutcome::new(truncate(output), true);
+                // A screenshot command used to cost a second turn: run it,
+                // then view_image the path it printed.
+                if call.function.name == "exec"
+                    && self.pictures_fit
+                    && self.viewed_image
+                    && let Some((path, image)) = images::drawn(&outcome.output, self.workspace.root(), began)
+                {
+                    outcome.output.push_str(&format!("\n[{path} is attached for inspection]"));
+                    outcome.images.push(image);
+                }
+                outcome
+            }
             Err(error) => elmee_core::ToolOutcome::new(truncate(format!("Error: {error}")), false),
         }
     }

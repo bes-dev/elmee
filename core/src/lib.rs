@@ -94,6 +94,15 @@ pub fn compact_chars_for(context_window_tokens: usize) -> usize {
     context_window_tokens.saturating_sub(reply).saturating_sub(headroom) * 4
 }
 
+/// The most one tool result may add for a compaction threshold: an eighth of
+/// the room, so that no single answer can fill a small window by itself.
+pub fn output_ceiling(compact_chars: usize) -> usize {
+    match compact_chars {
+        0 => usize::MAX,
+        room => (room / 8).max(2_000),
+    }
+}
+
 /// The threshold a selected model implies: a declared context window turns it
 /// from a guess into that model's actual capacity, and an undeclared one leaves
 /// the constant every frontend falls back to.

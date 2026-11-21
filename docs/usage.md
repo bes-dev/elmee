@@ -103,7 +103,9 @@ Install Poppler with `brew install poppler` on macOS or
 `sudo apt-get install poppler-utils` on Debian/Ubuntu. The agent must ask
 before installing dependencies. `view_image` sends rendered PNG, JPEG, GIF
 or WebP files (up to 5 MiB each) to the current model; `read` remains
-text-only. The skill distinguishes text extraction from visual review and
+text-only. After the model has viewed one image, a command that writes an
+image inside the workspace and prints its path (a screenshot, a plot) has that
+picture attached to its result, one per command. The skill distinguishes text extraction from visual review and
 reports when image inspection is unavailable. Existing PDF MCP declarations
 should be removed from your user/project configuration or the editor's server
 list.

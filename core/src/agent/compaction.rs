@@ -60,13 +60,8 @@ impl Agent {
         self.compact_chars > 0 && self.scaled_load() > self.compact_chars
     }
 
-    /// The most one tool result may add: an eighth of the room, so that no
-    /// single answer can fill a small window by itself.
     pub(super) fn output_ceiling(&self) -> usize {
-        match self.compact_chars {
-            0 => usize::MAX,
-            room => (room / 8).max(2_000),
-        }
+        crate::output_ceiling(self.compact_chars)
     }
 
     /// Free room for the next request. `Some` when a summary was written: how

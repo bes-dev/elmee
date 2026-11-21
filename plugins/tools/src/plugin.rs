@@ -95,11 +95,7 @@ impl elmee_core::Workspace for WorkspacePlugin {
                     path.starts_with(&self.cwd) || self.roots.iter().any(|root| path.starts_with(root))
                 })
             })
-            .filter(|path| {
-                path.extension().and_then(|extension| extension.to_str()).is_some_and(|extension| {
-                    matches!(extension.to_ascii_lowercase().as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp")
-                })
-            })
+            .filter(|path| crate::tools::images::named_like_image(path))
             .filter_map(|path| crate::tools::images::load(&path).ok())
             .take(4)
             .collect()

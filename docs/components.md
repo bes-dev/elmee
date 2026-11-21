@@ -114,7 +114,11 @@ grammar-constrained `apply_patch` for every change to a file, a shell family
 (`exec`, `write_run`, `stop_run`) over durable background runs. Listing and searching are commands rather than typed tools,
 because a three-field schema is strictly less than `rg`. `write_run` both feeds
 a run and collects what it has written since the last look, so following one
-needs no second verb. A relative path is resolved against the working
+needs no second verb. Once the model has viewed an image, a command whose
+output names an image it has just written inside the workspace has the last
+one named attached as `view_image` would attach it, when the context window
+has room for a picture in one result; unasked, a model that may not accept
+images is never sent one. A relative path is resolved against the working
 directory and an absolute one is used as written; an edit built on a stale
 read is refused.
 

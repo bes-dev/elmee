@@ -269,6 +269,7 @@ async fn compose(
     }
     let hooks = Hooks::discover(config.cwd.clone())?;
     let mut tools = ToolSet::discover(config.cwd.clone())?;
+    tools.fit_to(config.compact_chars);
     let explain = std::env::args_os().any(|arg| arg == "--explain-plugins");
     // The resolved allowlist is the one authority for every tool namespace.
     let offered =

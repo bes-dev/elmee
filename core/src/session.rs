@@ -53,7 +53,7 @@ pub struct Session {
 const ELIDED_CHARS: usize = 400;
 /// What a picture is counted as. Its bytes say nothing about its cost; a
 /// model charges on the order of a thousand tokens for one.
-const IMAGE_CHARS: usize = 6_000;
+pub const IMAGE_CHARS: usize = 6_000;
 
 /// How much of the context one message takes — including thinking blocks,
 /// which are replayed and can be large, so leaving them out would delay

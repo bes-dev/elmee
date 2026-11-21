@@ -86,6 +86,45 @@ async fn viewing_an_image_returns_pixels_instead_of_text_or_a_filename() {
     let _ = fs::remove_dir_all(root);
 }
 
+#[tokio::test]
+async fn a_command_that_draws_a_picture_shows_it_once_the_model_has_asked_for_one() {
+    let root = std::env::temp_dir().join(elmee_core::unique("drawn-image"));
+    fs::create_dir_all(&root).unwrap();
+    let gif = b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b";
+    fs::write(root.join("seed.gif"), gif).unwrap();
+    let stale = fs::File::create(root.join("stale.gif")).unwrap();
+    stale.set_modified(std::time::SystemTime::UNIX_EPOCH).unwrap();
+    let mut tools = ToolSet::discover(root.clone()).unwrap();
+    let exec = |id: &str, command: &str| {
+        ToolCall::new(id, "exec", serde_json::json!({ "command": command }).to_string())
+    };
+
+    let unasked = tools.execute_outcome(&exec("0", "cp seed.gif a.gif && echo Saved to a.gif")).await;
+    assert!(unasked.images.is_empty(), "a model that never asked for an image may not accept one");
+    let viewed = tools.execute_outcome(&ToolCall::new("1", "view_image", r#"{"path":"seed.gif"}"#)).await;
+    assert!(viewed.ok);
+
+    let drawn = tools
+        .execute_outcome(&exec(
+            "2",
+            "cp seed.gif a.gif; cp seed.gif b.gif; echo \"wrote a.gif, then $(pwd)/b.gif.\"",
+        ))
+        .await;
+    assert_eq!(drawn.images.len(), 1, "{}", drawn.output);
+    assert!(drawn.output.ends_with("/b.gif is attached for inspection]"), "{}", drawn.output);
+    for (id, command) in [("3", "echo stale.gif"), ("4", "cp seed.gif ../outside.gif && echo ../outside.gif")]
+    {
+        let shown = tools.execute_outcome(&exec(id, command)).await;
+        assert!(shown.images.is_empty(), "{command}: only an image written now, inside the workspace");
+    }
+
+    tools.fit_to(elmee_core::compact_chars_for(8_000));
+    let small = tools.execute_outcome(&exec("5", "cp seed.gif c.gif && echo c.gif")).await;
+    assert!(small.images.is_empty(), "an 8k window has no room for a picture nobody asked for");
+    let _ = fs::remove_file(root.join("../outside.gif"));
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn a_plugin_cannot_shadow_a_builtin_tool() {
     struct Collision(Vec<serde_json::Value>);
