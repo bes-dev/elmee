@@ -126,7 +126,10 @@ the application merely because a plugin task was cancelled.
 A command the model starts with `exec` is the deliberate exception: it is a
 durable run in its own process group, with its log and exit status in the
 project's state directory. A run that outlives its wait carries on in the
-background; stopping the turn that was waiting on it ends it.
+background; stopping the turn that was waiting on it ends it. Output longer
+than the call's bound (48 KiB, or less if the model asks) keeps its beginning
+and its end, counts what was left out between them and names the log; a log
+named that way outlives its run, and the newest eight are kept.
 
 ## Operational supervision
 

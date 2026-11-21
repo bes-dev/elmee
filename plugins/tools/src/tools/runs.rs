@@ -56,7 +56,12 @@ static LIVE: LazyLock<Mutex<HashMap<String, Arc<tokio::sync::Mutex<ChildStdin>>>
 
 /// A run may live for days. Its log is useful, but not entitled to the disk.
 const MAX_RUN_LOG: u64 = 2 * 1024 * 1024;
-pub const MAX_RUN_OUTPUT: u64 = 64 * 1024;
+/// Below the bound on any tool result, with room for the markers, so the cut
+/// a long output gets is this one — the one that names the log.
+pub const MAX_RUN_OUTPUT: u64 = 48 * 1024;
+/// Logs kept after their run because what was handed over had to be cut.
+/// Enough to go back to the last few; beyond that the disk is not theirs.
+const KEPT_LOGS: usize = 8;
 const MAX_ACTIVE_RUNS: usize = 8;
 const LOG_TRUNCATED: &[u8] = b"[older run output truncated]\n";
 /// How often a wait looks again. The answer is on disk, so following a run is
@@ -334,26 +339,39 @@ pub async fn follow(cwd: &Path, id: &str, wait: Duration, limit: u64) -> Result<
 }
 
 /// The log past `from`, and where the next look should start. A rotated log is
-/// shorter than the offset; re-reading its tail is the honest answer, because
-/// what stood between the two is gone.
+/// shorter than the offset; re-reading it is the honest answer, because what
+/// stood between the two is gone.
 fn read_since(path: &Path, from: u64, limit: u64) -> (String, u64) {
-    let Ok(mut file) = fs::File::open(path) else { return (String::new(), from) };
-    let Ok(length) = file.metadata().map(|metadata| metadata.len()) else { return (String::new(), from) };
+    read_span(path, from, limit).map_or((String::new(), from), |(text, length, _)| (text, length))
+}
+
+/// The log from `from` to its end in about `limit` bytes, and whether it was
+/// cut. Over the limit it keeps both ends: a command says what it is doing
+/// first and how it went last — a page its address, a build its failure — so
+/// neither end alone is the useful one. The log is named last, where a later
+/// cut that keeps the ends still keeps it, so the rest can be searched there.
+fn read_span(path: &Path, from: u64, limit: u64) -> std::io::Result<(String, u64, bool)> {
+    let mut file = fs::File::open(path)?;
+    let length = file.metadata()?.len();
     let from = if length < from { 0 } else { from };
-    if length <= from {
-        return (String::new(), length);
+    let mut read = |start: u64, bytes: u64| -> std::io::Result<String> {
+        file.seek(SeekFrom::Start(start))?;
+        let mut buffer = Vec::new();
+        (&mut file).take(bytes).read_to_end(&mut buffer)?;
+        Ok(String::from_utf8_lossy(&buffer).into_owned())
+    };
+    if length - from <= limit {
+        return Ok((read(from, limit)?, length, false));
     }
-    let start = from.max(length - limit.min(length));
-    if file.seek(SeekFrom::Start(start)).is_err() {
-        return (String::new(), from);
-    }
-    let mut bytes = Vec::new();
-    if (&mut file).take(limit).read_to_end(&mut bytes).is_err() {
-        return (String::new(), from);
-    }
-    let text = String::from_utf8_lossy(&bytes);
-    let text = if start > from { format!("[older run output omitted]\n{text}") } else { text.into_owned() };
-    (text, length)
+    let half = limit / 2;
+    let text = format!(
+        "{}\n[… {} bytes left out here …]\n{}\n[the run's log, to search or read for the rest: {}]",
+        read(from, half)?,
+        length - from - 2 * half,
+        read(length - half, half)?,
+        path.display()
+    );
+    Ok((text, length, true))
 }
 
 fn claim_slot_in(base: &Path) -> Result<fs::File> {
@@ -440,40 +458,47 @@ async fn spool(mut log: tokio::fs::File, mut receiver: mpsc::Receiver<Vec<u8>>) 
     Ok(())
 }
 
-/// Everything the run left behind: its output, and how it ended.
-pub fn output(cwd: &Path, id: &str) -> String {
-    output_limited(cwd, id, MAX_RUN_OUTPUT)
+/// Everything a finished run left behind — its output, and how it ended —
+/// handed over once, after which the run is forgotten. A log whose output had
+/// to be cut is kept, since the output names it as the place for the rest.
+pub fn take_output(cwd: &Path, id: &str, limit: u64) -> String {
+    take_output_in(&directory(cwd), id, limit)
 }
 
-/// The same, for a caller that said how much of it it wants.
-pub fn output_limited(cwd: &Path, id: &str, limit: u64) -> String {
-    output_in(&directory(cwd), id, limit)
-}
-
-fn output_in(base: &Path, id: &str, limit: u64) -> String {
-    let log = read_tail(&log_path_in(base, id), limit).unwrap_or_default();
-    match outcome_in(base, id) {
+fn take_output_in(base: &Path, id: &str, limit: u64) -> String {
+    let (log, cut) = read_span(&log_path_in(base, id), 0, limit)
+        .map_or((String::new(), false), |(log, _, cut)| (log, cut));
+    let output = match outcome_in(base, id) {
         Some(0) | None => log,
         Some(code) => format!("{log}\n[exit status: {code}]"),
+    };
+    let log = (!cut).then(|| log_path_in(base, id));
+    for path in [exit_path_in(base, id), record_path_in(base, id)].into_iter().chain(log) {
+        let _ = fs::remove_file(path);
+    }
+    if cut {
+        prune_kept_logs(base);
+    }
+    output
+}
+
+/// Drop kept logs beyond the newest few. A kept log is one with no record
+/// beside it; ids start with the second they were made, so name order is age.
+fn prune_kept_logs(base: &Path) {
+    let Ok(entries) = fs::read_dir(base) else { return };
+    let mut kept: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|extension| extension == "log"))
+        .filter(|path| !path.with_extension("json").exists())
+        .collect();
+    kept.sort();
+    for path in kept.iter().rev().skip(KEPT_LOGS) {
+        let _ = fs::remove_file(path);
     }
 }
 
-fn read_tail(path: &Path, limit: u64) -> std::io::Result<String> {
-    let mut file = fs::File::open(path)?;
-    let length = file.metadata()?.len();
-    let clipped = length > limit;
-    if clipped {
-        file.seek(SeekFrom::End(-(limit as i64)))?;
-    }
-    let mut bytes = Vec::with_capacity(length.min(limit) as usize);
-    file.take(limit).read_to_end(&mut bytes)?;
-    let text = String::from_utf8_lossy(&bytes);
-    Ok(if clipped { format!("[older run output omitted]\n{text}") } else { text.into_owned() })
-}
-
-/// Drop every trace of a run. Called once its output has been handed over, so
-/// the directory holds only what is still running or still unread.
-pub fn forget(cwd: &Path, id: &str) {
+fn forget(cwd: &Path, id: &str) {
     forget_in(&directory(cwd), id);
 }
 
@@ -525,24 +550,47 @@ mod tests {
         assert_eq!(first.wait().await.unwrap(), 0);
         assert_eq!(started.wait().await.unwrap(), 3);
         assert_eq!(outcome_in(&base, &run.id), Some(3));
-        let output = output_in(&base, &run.id, MAX_RUN_OUTPUT);
+        assert!(summary_in(&base).contains("failed 3"));
+        let output = take_output_in(&base, &run.id, MAX_RUN_OUTPUT);
         assert!(output.contains("hello"), "{output}");
         assert!(output.contains("exit status: 3"), "{output}");
-        assert!(summary_in(&base).contains("failed 3"));
-        forget_in(&base, &run.id);
-        forget_in(&base, &first.run.id);
+        take_output_in(&base, &first.run.id, MAX_RUN_OUTPUT);
         assert_eq!(summary_in(&base), "nothing running");
+        assert!(!log_path_in(&base, &run.id).exists(), "output handed over whole leaves nothing behind");
         let _ = fs::remove_dir_all(cwd);
     }
 
-    #[test]
-    fn reading_a_legacy_oversized_log_keeps_only_a_bounded_tail() {
-        let path = std::env::temp_dir().join(format!("elmee-run-tail-{}", std::process::id()));
-        fs::write(&path, vec![b'x'; MAX_RUN_OUTPUT as usize + 20]).unwrap();
-        let output = read_tail(&path, MAX_RUN_OUTPUT).unwrap();
-        assert!(output.starts_with("[older run output omitted]"));
-        assert!(output.len() <= MAX_RUN_OUTPUT as usize + 32);
-        fs::remove_file(path).unwrap();
+    #[tokio::test]
+    async fn output_over_the_limit_keeps_both_ends_and_names_the_log_it_keeps() {
+        let cwd = std::env::temp_dir().join(elmee_core::unique("run-ends"));
+        let base = cwd.join("runs");
+        fs::create_dir_all(&base).unwrap();
+        let mut started =
+            start_in(&cwd, &base, "echo https://shop.example/item; seq 1 5000; echo FAILED", false)
+                .await
+                .unwrap();
+        started.wait().await.unwrap();
+        let output = take_output_in(&base, &started.run.id, 1_000);
+        let log = log_path_in(&base, &started.run.id);
+        assert!(output.starts_with("https://shop.example/item\n1\n2\n"), "{output}");
+        assert!(output.contains("bytes left out here"), "{output}");
+        assert!(output.contains("5000\nFAILED\n"), "{output}");
+        assert!(output.ends_with(&format!("{}]", log.display())), "{output}");
+        assert!(output.len() < 1_000 + 300, "{}", output.len());
+        assert!(log.exists() && list_in(&base).is_empty(), "the log stays, the run does not");
+
+        for second in 0..KEPT_LOGS + 2 {
+            fs::write(base.join(format!("{second:010}-1-1.log")), "old").unwrap();
+        }
+        prune_kept_logs(&base);
+        let logs = fs::read_dir(&base)
+            .unwrap()
+            .flatten()
+            .filter(|entry| entry.path().extension().is_some_and(|extension| extension == "log"))
+            .count();
+        assert_eq!(logs, KEPT_LOGS);
+        assert!(log.exists(), "the newest kept log is the last to go");
+        fs::remove_dir_all(cwd).unwrap();
     }
 
     #[tokio::test]

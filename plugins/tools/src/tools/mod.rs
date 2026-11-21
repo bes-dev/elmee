@@ -83,13 +83,11 @@ impl ToolSet {
                 Err(error) => elmee_core::ToolOutcome::new(format!("Error: {error}"), false),
             };
         }
-        // Command output is most informative at its tail; file output at its head.
-        let keep_head = !matches!(call.function.name.as_str(), "exec" | "write_run");
         // How it went is reported, not inferred: a consumer that has to read
         // the output to find out is one string away from being wrong.
         match self.try_execute(call).await {
-            Ok(output) => elmee_core::ToolOutcome::new(truncate(output, keep_head), true),
-            Err(error) => elmee_core::ToolOutcome::new(truncate(format!("Error: {error}"), true), false),
+            Ok(output) => elmee_core::ToolOutcome::new(truncate(output), true),
+            Err(error) => elmee_core::ToolOutcome::new(truncate(format!("Error: {error}")), false),
         }
     }
 
@@ -115,9 +113,10 @@ fn parse<T: serde::de::DeserializeOwned>(arguments: &str) -> Result<T> {
 }
 
 /// Cap what is about to enter model context. The same bounding `text` does,
-/// at the size a tool result is allowed to be.
-pub fn truncate(value: String, keep_head: bool) -> String {
-    elmee_core::text::bound(value, MAX_OUTPUT, keep_head)
+/// at the size a tool result is allowed to be. Command output arrives already
+/// bounded below this, with both its ends kept.
+pub fn truncate(value: String) -> String {
+    elmee_core::text::bound(value, MAX_OUTPUT, true)
 }
 
 #[cfg(test)]

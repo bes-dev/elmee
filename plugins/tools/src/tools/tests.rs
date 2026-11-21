@@ -9,12 +9,10 @@ use std::fs;
 use super::{edit::edit, *};
 
 #[test]
-fn truncates_from_either_end_on_char_boundaries() {
+fn truncates_on_char_boundaries() {
     let long = format!("start {} end", "é".repeat(MAX_OUTPUT));
-    let head = truncate(long.clone(), true);
+    let head = truncate(long);
     assert!(head.starts_with("start é") && head.ends_with("bytes]") && head.len() <= MAX_OUTPUT + 64);
-    let tail = truncate(long, false);
-    assert!(tail.starts_with("[output truncated") && tail.ends_with(" end"));
 }
 
 #[test]

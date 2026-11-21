@@ -211,18 +211,11 @@ pub(crate) fn finished_runs(cwd: &Path, reported: &mut HashSet<String>) -> Vec<B
         if !reported.insert(run.id.clone()) {
             continue;
         }
-        let output = elmee_plugin_tools::runs::output(cwd, &run.id);
-        elmee_plugin_tools::runs::forget(cwd, &run.id);
+        let output =
+            elmee_plugin_tools::runs::take_output(cwd, &run.id, elmee_plugin_tools::runs::MAX_RUN_OUTPUT);
         let verdict = if code == 0 { "finished" } else { "failed" };
-        let body = format!(
-            "{}\n{}",
-            run.command,
-            elmee_core::text::fenced(
-                "output",
-                " trusted=\"no\"",
-                &elmee_plugin_tools::tools::truncate(output, false),
-            )
-        );
+        let body =
+            format!("{}\n{}", run.command, elmee_core::text::fenced("output", " trusted=\"no\"", &output));
         events.push(BackgroundEvent {
             id: format!("run-{}", run.id),
             prompt: elmee_core::text::fenced(

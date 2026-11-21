@@ -21,7 +21,7 @@ use crate::{Result, runs};
 /// stop waiting and say how to carry on — and the agent hears about the ending
 /// through its inbox, like anything else that finishes while it is busy.
 pub(super) async fn exec(cwd: &Path, args: &ExecArgs) -> Result<String> {
-    let limit = args.max_output_bytes.unwrap_or(runs::MAX_RUN_OUTPUT);
+    let limit = args.max_output_bytes.unwrap_or(runs::MAX_RUN_OUTPUT).min(runs::MAX_RUN_OUTPUT);
     let yield_for = args.yield_ms.map_or(*TOOL_TIMEOUT, Duration::from_millis);
     let mut started = runs::start(cwd, &args.command).await?;
     let id = started.run.id.clone();
@@ -39,9 +39,7 @@ pub(super) async fn exec(cwd: &Path, args: &ExecArgs) -> Result<String> {
     match waited {
         Ok(result) => {
             result?;
-            let output = runs::output_limited(cwd, &id, limit);
-            runs::forget(cwd, &id);
-            Ok(output)
+            Ok(runs::take_output(cwd, &id, limit))
         }
         // A zero wait for what it has already written: everything, and the
         // offset moves, so the next write_run continues rather than repeats.

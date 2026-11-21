@@ -117,7 +117,7 @@ async fn run_substitution(command: &str, cwd: &Path) -> String {
             text.truncate(text.trim_end().len());
             // Bounded at the size any other tool result may be, because this
             // goes straight into the prompt.
-            elmee_plugin_tools::tools::truncate(text, true)
+            elmee_plugin_tools::tools::truncate(text)
         }
     }
 }

@@ -71,7 +71,7 @@ pub(super) fn definitions() -> Vec<Value> {
              Every command is a run with an id. One still going when the wait ends keeps running \
              and you are told when it ends, so never sleep or block for minutes: follow it with \
              write_run. Its stdin is a pipe, so a command that asks a question waits for an answer",
-            r#"{"type":"object","properties":{"command":{"type":"string"},"yield_ms":{"type":"integer","minimum":0,"description":"How long to wait before returning. 0 returns as soon as the run starts: use it for work longer than a couple of minutes (a build, a test suite, a training job) and for anything you will keep and talk to (a REPL, a database shell). Omitted waits the default"},"max_output_bytes":{"type":"integer","minimum":1,"description":"Cap on the output this call returns, tail first"}},"required":["command"]}"#,
+            r#"{"type":"object","properties":{"command":{"type":"string"},"yield_ms":{"type":"integer","minimum":0,"description":"How long to wait before returning. 0 returns as soon as the run starts: use it for work longer than a couple of minutes (a build, a test suite, a training job) and for anything you will keep and talk to (a REPL, a database shell). Omitted waits the default"},"max_output_bytes":{"type":"integer","minimum":1,"description":"Cap on the output this call returns, at most 48 KiB. Longer output keeps its beginning and its end and names the log holding the rest"}},"required":["command"]}"#,
         ),
         (
             "write_run",
