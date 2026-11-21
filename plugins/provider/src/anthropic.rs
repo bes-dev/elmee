@@ -115,6 +115,7 @@ impl Provider for Anthropic {
         } else {
             let body: Value = serde_json::from_str(&response.text().await.or_http()?)?;
             blocks.stop_reason = body.get("stop_reason").and_then(Value::as_str).map(str::to_owned);
+            blocks.cached = body.pointer("/usage/cache_read_input_tokens").and_then(Value::as_u64);
             blocks.tokens = (
                 input_tokens(body.pointer("/usage")),
                 body.pointer("/usage/output_tokens").and_then(Value::as_u64).unwrap_or(0),
@@ -284,6 +285,7 @@ struct Blocks {
     arguments: Vec<String>,
     stop_reason: Option<String>,
     tokens: (u64, u64),
+    cached: Option<u64>,
 }
 
 impl Blocks {
@@ -321,7 +323,10 @@ impl Blocks {
                     _ => {}
                 }
             }
-            "message_start" => self.tokens.0 = input_tokens(event.pointer("/message/usage")),
+            "message_start" => {
+                self.tokens.0 = input_tokens(event.pointer("/message/usage"));
+                self.cached = event.pointer("/message/usage/cache_read_input_tokens").and_then(Value::as_u64);
+            }
             "message_delta" => {
                 self.stop_reason =
                     event.pointer("/delta/stop_reason").and_then(Value::as_str).map(str::to_owned);
@@ -384,7 +389,7 @@ impl Blocks {
             tool_calls,
             thinking,
             tokens,
-            metrics: None,
+            metrics: super::cache_hits(self.cached),
         })
     }
 }
@@ -674,6 +679,7 @@ mod tests {
         let mut streamed = String::new();
         let mut reasoned = String::new();
         let lines = [
+            r#"data: {"type":"message_start","message":{"usage":{"input_tokens":4,"cache_read_input_tokens":900}}}"#,
             r#"data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}"#,
             r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"weighing it up"}}"#,
             r#"data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"s1"}}"#,
@@ -699,6 +705,8 @@ mod tests {
         assert_eq!(turn.tool_calls[0].function.name, "read");
         assert_eq!(turn.tool_calls[0].function.arguments, r#"{"path":"x"}"#);
         assert_eq!(turn.thinking[0]["signature"], "s1");
+        assert_eq!(turn.tokens.0, 904);
+        assert_eq!(turn.metrics.and_then(|metrics| metrics.cached_input_tokens), Some(900));
         // The thinking is replayed to the provider *and* shown to the person:
         // capturing it for replay while streaming none of it left a spinner
         // and an empty screen for as long as the model reasoned.

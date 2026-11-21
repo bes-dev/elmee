@@ -9,7 +9,7 @@ use elmee_core::message::{FunctionCall, Message, ToolCall};
 
 use super::{AssistantTurn, Chunk, Provider};
 use crate::OrHttp;
-use elmee_core::provider::ReasoningEffort;
+use elmee_core::provider::{ReasoningEffort, RequestMetrics};
 
 pub struct OpenAiCompatible {
     client: Client,
@@ -70,8 +70,7 @@ impl Provider for OpenAiCompatible {
         if let Some(content) = message.content.as_deref() {
             on_text(Chunk::Text(content));
         }
-        message.tokens =
-            response.usage.map_or((0, 0), |usage| (usage.prompt_tokens, usage.completion_tokens));
+        (message.tokens, message.metrics) = reported(response.usage);
         Ok(message)
     }
 
@@ -138,10 +137,10 @@ where
 {
     let mut content = String::new();
     let mut calls: Vec<ToolCallBuilder> = Vec::new();
-    let mut tokens = (0, 0);
+    let mut usage = None;
     let mut finish = None;
     super::read_events(response, |line| {
-        process_sse_line(line, &mut content, &mut calls, &mut tokens, &mut finish, on_text)
+        process_sse_line(line, &mut content, &mut calls, &mut usage, &mut finish, on_text)
     })
     .await?;
 
@@ -158,12 +157,13 @@ where
     if finish.as_deref() == Some("length") {
         drop_truncated_calls(&mut tool_calls);
     }
+    let (tokens, metrics) = reported(usage);
     Ok(AssistantTurn {
         content: (!content.is_empty()).then_some(content),
         tool_calls,
         thinking: Vec::new(),
         tokens,
-        metrics: None,
+        metrics,
     })
 }
 
@@ -171,7 +171,7 @@ fn process_sse_line<F>(
     line: &[u8],
     content: &mut String,
     calls: &mut Vec<ToolCallBuilder>,
-    tokens: &mut (u64, u64),
+    usage: &mut Option<Usage>,
     finish: &mut Option<String>,
     on_text: &mut F,
 ) -> Result<ControlFlow<()>>
@@ -198,8 +198,8 @@ where
         return Err(crate::stream_refusal(detail.to_owned()));
     }
     let event: ApiResponse<StreamChoice> = serde_json::from_value(value)?;
-    if let Some(usage) = event.usage {
-        *tokens = (usage.prompt_tokens, usage.completion_tokens);
+    if event.usage.is_some() {
+        *usage = event.usage;
     }
     for choice in event.choices {
         if let Some(reason) = choice.finish_reason {
@@ -260,6 +260,18 @@ struct Usage {
     prompt_tokens: u64,
     #[serde(default)]
     completion_tokens: u64,
+    prompt_tokens_details: Option<PromptTokensDetails>,
+}
+
+#[derive(Deserialize)]
+struct PromptTokensDetails {
+    cached_tokens: Option<u64>,
+}
+
+fn reported(usage: Option<Usage>) -> ((u64, u64), Option<RequestMetrics>) {
+    let Some(usage) = usage else { return ((0, 0), None) };
+    let cached = usage.prompt_tokens_details.and_then(|details| details.cached_tokens);
+    ((usage.prompt_tokens, usage.completion_tokens), super::cache_hits(cached))
 }
 
 #[derive(Deserialize)]
@@ -455,27 +467,33 @@ mod tests {
         let mut content = String::new();
         let mut calls = Vec::new();
         let mut streamed = String::new();
-        let mut tokens = (0, 0);
+        let mut usage = None;
         let mut finish = None;
         let _ = process_sse_line(
             br#"data: {"choices":[{"delta":{"content":"Hi ","tool_calls":[{"index":0,"id":"c1","type":"function","function":{"name":"re","arguments":"{\"pa"}}]}}]}"#,
             &mut content,
             &mut calls,
-            &mut tokens,
+            &mut usage,
             &mut finish,
             &mut |chunk| if let Chunk::Text(text) = chunk { streamed.push_str(text) },
         )
         .unwrap();
         let _ = process_sse_line(
-            br#"data: {"choices":[{"delta":{"content":"there","tool_calls":[{"index":0,"function":{"name":"ad","arguments":"th\":\"x\"}"}}]}}],"usage":{"prompt_tokens":7,"completion_tokens":3}}"#,
+            br#"data: {"choices":[{"delta":{"content":"there","tool_calls":[{"index":0,"function":{"name":"ad","arguments":"th\":\"x\"}"}}]}}],"usage":{"prompt_tokens":7,"completion_tokens":3,"prompt_tokens_details":{"cached_tokens":5}}}"#,
             &mut content,
             &mut calls,
-            &mut tokens,
+            &mut usage,
             &mut finish,
             &mut |chunk| if let Chunk::Text(text) = chunk { streamed.push_str(text) },
         )
         .unwrap();
+        let (tokens, metrics) = reported(usage);
         assert_eq!(tokens, (7, 3));
+        assert_eq!(metrics.and_then(|metrics| metrics.cached_input_tokens), Some(5));
+        assert!(
+            reported(serde_json::from_str(r#"{"prompt_tokens":7}"#).ok()).1.is_none(),
+            "silence is not zero"
+        );
 
         assert_eq!(content, "Hi there");
         assert_eq!(streamed, content);

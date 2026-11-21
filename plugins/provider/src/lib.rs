@@ -193,6 +193,16 @@ pub(crate) fn stream_refusal(detail: String) -> crate::Error {
     crate::Error::Provider(detail)
 }
 
+/// A turn's cache hits where the provider reported them. An orchestrator
+/// pricing a run cannot tell a miss from a silence, so silence stays `None`.
+pub(crate) fn cache_hits(cached: Option<u64>) -> Option<elmee_core::provider::RequestMetrics> {
+    cached.map(|cached| elmee_core::provider::RequestMetrics {
+        attempts: 1,
+        cached_input_tokens: Some(cached),
+        ..Default::default()
+    })
+}
+
 /// Parse the `{"data": [{"id": ...}]}` shape both key-authenticated endpoints
 /// use for /models.
 ///

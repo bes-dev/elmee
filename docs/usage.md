@@ -26,7 +26,9 @@ receive the same choice as the standard `thought_level` session option.
 
 Responses requests report cache-hit tokens, first text/tool timing,
 headers, total duration, attempts and the effective service tier in headless
-`model_end.metrics` records. ACP includes the same observations under
+`model_end.metrics` records. Chat Completions and Anthropic Messages report
+cache-hit tokens too (`prompt_tokens_details.cached_tokens`,
+`cache_read_input_tokens`) when the provider returns them. ACP includes the same observations under
 `_meta.elmee` in usage updates and the completed turn. Missing observations are
 omitted. Serialization/auth timings are local durations; the other timings are
 elapsed since the request began. Credentials and request content are excluded.
