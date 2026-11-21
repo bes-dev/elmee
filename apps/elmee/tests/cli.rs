@@ -121,6 +121,72 @@ fn a_headless_run_announces_its_protocol_and_reports_a_result() {
     let _ = std::fs::remove_dir_all(home.parent().unwrap());
 }
 
+/// A supervisor that stops a run at its deadline used to get a bare error
+/// and lose what the run had spent.
+#[test]
+fn a_run_stopped_by_sigterm_still_ends_in_one_record_with_its_totals() {
+    use std::io::BufRead;
+
+    let (home, work) = scratch("sigterm");
+    let listener = TcpListener::bind("127.0.0.1:0").expect("a port");
+    let address = listener.local_addr().expect("an address").to_string();
+    // One answer, a call to a command that outlives the deadline.
+    let server = std::thread::spawn(move || {
+        let Ok((mut socket, _)) = listener.accept() else { return };
+        read_http_body(&mut socket);
+        let body = serde_json::json!({
+            "choices": [{"message": {"role": "assistant", "content": null, "tool_calls": [{
+                "id": "wait", "type": "function",
+                "function": {"name": "exec", "arguments": "{\"command\":\"sleep 30\"}"}
+            }]}}],
+            "usage": {"prompt_tokens": 11, "completion_tokens": 3},
+        })
+        .to_string();
+        let _ = socket.write_all(
+            format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .as_bytes(),
+        );
+    });
+    let mut child = elmee(&home, &work)
+        .args(["--json", "-m", "ollama/stub", "wait for it"])
+        .env("ELMEE_BASE_URL", format!("http://{address}/v1"))
+        .env("ELMEE_API_KEY", "stub")
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("elmee runs");
+    let mut records = Vec::new();
+    let mut lines = std::io::BufReader::new(child.stdout.take().unwrap()).lines();
+    for line in lines.by_ref() {
+        let record: serde_json::Value = serde_json::from_str(&line.unwrap()).unwrap();
+        let started_waiting = record["type"] == "tool_start";
+        records.push(record);
+        if started_waiting {
+            break;
+        }
+    }
+    assert!(records.last().is_some_and(|record| record["type"] == "tool_start"), "{records:?}");
+    let term = Command::new("kill").args(["-TERM", &child.id().to_string()]).status().unwrap();
+    assert!(term.success());
+    records.extend(lines.map(|line| serde_json::from_str::<serde_json::Value>(&line.unwrap()).unwrap()));
+    assert_eq!(child.wait().unwrap().code(), Some(143));
+    let _ = server.join();
+
+    let terminal: Vec<_> = records
+        .iter()
+        .filter(|record| ["result", "error", "paused"].contains(&record["type"].as_str().unwrap_or_default()))
+        .collect();
+    assert_eq!(terminal.len(), 1, "exactly one terminal record: {records:?}");
+    let stopped = terminal[0];
+    assert_eq!(stopped["type"], "error");
+    assert_eq!(stopped["signal"], "SIGTERM");
+    assert_eq!(stopped["input_tokens"], 11, "what was spent before the signal is kept: {stopped}");
+    assert!(stopped["duration_ms"].is_number() && stopped["session"].is_string(), "{stopped}");
+    let _ = std::fs::remove_dir_all(home.parent().unwrap());
+}
+
 #[test]
 fn a_goal_cannot_hide_its_own_completion_tool() {
     let (home, work) = scratch("goal-tools");

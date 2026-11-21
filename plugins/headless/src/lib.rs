@@ -18,10 +18,16 @@ use elmee_host::{Driver, RuntimeEvent};
 /// The final record of a completed run: everything an orchestrator needs to
 /// decide what happened without re-reading the event stream.
 fn result_record(agent: &Agent, answer: &str, started: std::time::Instant) -> Value {
+    let mut record = totals(agent, started);
+    record["type"] = "result".into();
+    record["answer"] = answer.into();
+    record
+}
+
+/// What a run has spent and shown so far, whether it finished or was stopped.
+fn totals(agent: &Agent, started: std::time::Instant) -> Value {
     let (input, output) = agent.tokens();
     serde_json::json!({
-        "type": "result",
-        "answer": answer,
         "session": agent.session_path().map(|path| path.display().to_string()),
         "context_chars": agent.context_chars(),
         "input_tokens": input,
@@ -96,7 +102,7 @@ pub async fn run(
     let responder = driver.runtime.responder();
     enum Outcome {
         Turn(Result<String>),
-        Signal(i32),
+        Signal(i32, &'static str),
     }
     let outcome = {
         let turn = driver.turn(Some(prompt), &mut on_event);
@@ -125,12 +131,12 @@ pub async fn run(
             },
             // 130 and 143 are the shell's own codes for SIGINT and SIGTERM; a
             // supervisor reads them to tell "cancelled" from "crashed".
-            code = async {
+            (code, name) = async {
                 tokio::select! {
-                    _ = sigint.recv() => 130,
-                    _ = sigterm.recv() => 143,
+                    _ = sigint.recv() => (130, "SIGINT"),
+                    _ = sigterm.recv() => (143, "SIGTERM"),
                 }
-            } => break Outcome::Signal(code),
+            } => break Outcome::Signal(code, name),
             }
         }
     };
@@ -151,9 +157,15 @@ pub async fn run(
             }
             Ok(if error.is_provider_quota() { 75 } else { 1 })
         }
-        Outcome::Signal(code) => {
+        Outcome::Signal(code, name) => {
             if json {
-                emit(&serde_json::json!({"type": "error", "message": "aborted by signal"}));
+                // A supervisor that stops a run at its deadline still has to
+                // account for what the run spent before it was stopped.
+                let mut record = totals(&driver.agent, started);
+                record["type"] = "error".into();
+                record["message"] = format!("aborted by {name}").into();
+                record["signal"] = name.into();
+                emit(&record);
             } else {
                 eprintln!("aborted");
             }

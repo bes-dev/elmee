@@ -186,7 +186,10 @@ One-shot runs do not offer `ask_user`, since this frontend cannot read an
 answer. TUI and ACP sessions retain interactive questions.
 
 SIGINT exits 130, SIGTERM 143, ordinary failures 1, and resumable provider
-quota exhaustion 75.
+quota exhaustion 75. A run stopped by a signal still ends in one terminal
+record: an `error` whose `signal` is `SIGINT` or `SIGTERM`, carrying the
+tokens, duration, session path and evidence of a `result` up to that moment,
+so a supervisor that stops a run at its deadline keeps its totals.
 
 ## Goals, background agents and project peers
 
