@@ -63,10 +63,11 @@ pub(super) fn definitions() -> Vec<Value> {
              without comment: rg is absent from many containers, grep is not. Output is bounded and \
              the cut is marked — read the rest rather than reasoning from the part you were handed, \
              and add no separators like echo ====, which are noise in the user's terminal.\n\
-             Never write a file here: cat >, a heredoc or a throwaway script bypasses the checks \
-             that make an edit safe, so use apply_patch. A formatter or codemod rewriting in bulk \
-             is fine. Backticks and $() still execute, so prefer explicit paths you have checked \
-             over globs and substitutions, and never aim a recursive or destructive command at a \
+             Edit files with apply_patch: cat >, a heredoc or a throwaway script bypasses the checks \
+             that make an edit safe. A formatter or codemod rewriting in bulk is fine, and so is \
+             appending to a log or notes file with >> in the command that produced the line. \
+             Backticks and $() still execute, so prefer explicit paths you have checked over globs \
+             and substitutions, and never aim a recursive or destructive command at a \
              home, root or workspace directory.\n\
              Every command is a run with an id. One still going when the wait ends keeps running \
              and you are told when it ends, so never sleep or block for minutes: follow it with \
