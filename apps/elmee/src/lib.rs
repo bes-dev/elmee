@@ -298,7 +298,11 @@ async fn compose(
     let mut builder = AgentBuilder::new(system_prompt)
         .limits(config.max_steps, config.compact_chars)
         .interactive(interactive);
-    provider.context().set(session.path());
+    // A run that keeps no session is keyed by its directory instead, so the
+    // next one there is routed to the cache already holding the tools and the
+    // system prompt: measured on one-shot runs, the first request found them
+    // 13 times in 14, against 9 in 14 with a key of its own.
+    provider.context().set(session.path().or(Some(&config.cwd)));
     builder.plugin(provider)?;
     builder.plugin(tools)?;
     if let Some(search) = search {
