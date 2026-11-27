@@ -26,17 +26,19 @@ elmee --acp                                       # an engine for your applicati
 
 Because the others are applications, and this one is a part.
 
-| Measured on one machine, 2026-11-10 | elmee | pi | Codex | Claude Code |
+| Measured on one machine, 2026-11-27 | elmee | pi | Codex | Claude Code |
 | --- | ---: | ---: | ---: | ---: |
-| On disk | 4.8 MB | 149 MB + Node | 271 MB | 324 MB |
-| Ready to take a prompt, as a server | 9 ms | ≈150 ms | 128 ms | 291 ms |
-| A second session in the same process | 0.9 ms | — | 5.4 ms | 110 ms |
-| Memory while idle, as a server | 7 MB | 173 MB | 235 MB | 645 MB |
-| Overhead of one text turn | 34 ms | 148 ms | 236 ms | 160 ms |
+| On disk | 4.9 MB | 149 MB + Node | 291 MB | 366 MB |
+| Ready to take a prompt, as a server | 5 ms | ≈150 ms | 134 ms | 310 ms |
+| A second session in the same process | 0.9 ms | — | 5.4 ms | 115 ms |
+| Memory while idle, as a server | 8 MB | 172 MB | 244 MB | 732 MB |
+| Overhead of one text turn | 9 ms | 154 ms | 161 ms | 156 ms |
+| A warm turn, as a server | 0.8 ms | 1.3 ms | 14.5 ms | 10.1 ms |
+| Overhead of one tool call | 2.3 ms | 4.4 ms | 8.6 ms | 88 ms |
 
 The scripts, the method and the raw results are in
-[`benchmarks/harnesses`](benchmarks/harnesses) (Codex 0.167, Claude Code
-2.1.322, pi 1.4.0; Apple M4 Max).
+[`benchmarks/harnesses`](benchmarks/harnesses) (Codex 0.172, Claude Code
+2.1.332, pi 1.4.0; Apple M4 Max).
 
 Three things follow from being small and being a part:
 

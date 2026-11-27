@@ -25,4 +25,5 @@ user's skills, MCP servers and settings are not part of the measurement.
 
 `homes/` (generated provider configs) and `npm/` are not kept here; the configs
 are the few lines each script's harness needs to reach port 18801 or 18802.
-Results of the run of 2026-11-10 are in `results/`.
+`results/` holds the offline and embedded runs of 2026-11-27 and the live run
+of 2026-11-10.

@@ -1,21 +1,26 @@
 {
  "elmee": {
-  "init_ms": 3.737584687769413,
-  "new_ms": 5.6522078812122345,
-  "ready_ms": 9.389792568981647,
-  "first_turn_ms": 26.180332526564598,
-  "warm_first_chunk_ms": 1.048749778419733,
-  "warm_turn_ms": 15.439437236636877,
-  "warm_p90_ms": 15.749791637063026,
-  "steps8_ms": 197.48079124838114,
+  "init_ms": 3.188250004313886,
+  "new_ms": 1.7667500069364905,
+  "ready_ms": 4.955000011250377,
+  "first_turn_ms": 1.6665839939378202,
+  "warm_first_chunk_ms": 0.7649795152246952,
+  "warm_turn_ms": 0.795979518443346,
+  "warm_p90_ms": 0.8744159713387489,
+  "steps8_ms": 22.48370897723362,
   "steps_ok": true,
-  "second_new_ms": 0.8644573390483856,
-  "idle_rss_mb": 7.0,
+  "second_new_ms": 0.8591670193709433,
+  "idle_rss_mb": 7.46875,
   "processes": 1,
   "protocol": 1,
   "capabilities": {
+   "auth": {
+    "logout": {},
+    "status": {}
+   },
    "loadSession": true,
    "mcpCapabilities": {
+    "acp": true,
     "http": true,
     "sse": false
    },
@@ -25,10 +30,20 @@
     "image": true
    },
    "sessionCapabilities": {
+    "additionalDirectories": {},
     "close": {},
     "delete": {},
+    "fork": {},
     "list": {},
-    "resume": {}
+    "resume": {},
+    "status": {},
+    "subagents": {},
+    "systemPrompt": {
+     "mode": {
+      "override": {}
+     }
+    },
+    "title": {}
    }
   },
   "auth": [
@@ -36,22 +51,23 @@
   ]
  },
  "codex": {
-  "init_ms": 110.72283238172531,
-  "new_ms": 17.826417461037636,
-  "ready_ms": 128.54924984276295,
-  "first_turn_ms": 20.98687458783388,
-  "warm_first_chunk_ms": 2.7165208011865616,
-  "warm_turn_ms": 15.12695848941803,
-  "warm_p90_ms": 15.955457463860512,
-  "steps8_ms": 460.75179148465395,
+  "init_ms": 117.62899998575449,
+  "new_ms": 15.916000003926456,
+  "ready_ms": 133.54499998968095,
+  "first_turn_ms": 21.923041029367596,
+  "warm_first_chunk_ms": 2.1161665208637714,
+  "warm_turn_ms": 14.536333474097773,
+  "warm_p90_ms": 15.214041981380433,
+  "steps8_ms": 265.71854104986414,
   "steps_ok": true,
-  "second_new_ms": 5.374542437493801,
-  "idle_rss_mb": 234.84375,
+  "second_new_ms": 5.366958968807012,
+  "idle_rss_mb": 244.203125,
   "processes": 2,
   "protocol": 1,
   "capabilities": {
    "auth": {
-    "logout": {}
+    "logout": {},
+    "status": {}
    },
    "providers": {},
    "loadSession": true,
@@ -65,13 +81,13 @@
     "close": {},
     "delete": {},
     "fork": {},
+    "options": {},
     "title": {},
     "additionalDirectories": {},
-    "subagents": {},
     "systemPrompt": {}
    },
    "mcpCapabilities": {
-    "acp": false,
+    "acp": true,
     "http": true,
     "sse": false
    },
@@ -85,17 +101,17 @@
   ]
  },
  "claude": {
-  "init_ms": 167.1373751014471,
-  "new_ms": 124.013083986938,
-  "ready_ms": 291.1504590883851,
-  "first_turn_ms": 44.43991743028164,
-  "warm_first_chunk_ms": 7.940958254039288,
-  "warm_turn_ms": 9.070978965610266,
-  "warm_p90_ms": 10.226917453110218,
-  "steps8_ms": 187.41241563111544,
+  "init_ms": 178.30050003249198,
+  "new_ms": 131.24429096933454,
+  "ready_ms": 309.5447910018265,
+  "first_turn_ms": 45.85566703462973,
+  "warm_first_chunk_ms": 8.612667006673291,
+  "warm_turn_ms": 10.07200000458397,
+  "warm_p90_ms": 10.866000025998801,
+  "steps8_ms": 215.7110000262037,
   "steps_ok": true,
-  "second_new_ms": 109.77091733366251,
-  "idle_rss_mb": 644.9375,
+  "second_new_ms": 114.82391599565744,
+  "idle_rss_mb": 731.8125,
   "processes": 3,
   "protocol": 1,
   "capabilities": {
@@ -111,7 +127,8 @@
    },
    "mcpCapabilities": {
     "http": true,
-    "sse": true
+    "sse": true,
+    "acp": true
    },
    "auth": {
     "logout": {},
@@ -125,12 +142,15 @@
     "delete": {},
     "fork": {},
     "list": {},
+    "options": {},
     "resume": {},
+    "status": {},
     "systemPrompt": {
      "mode": {
       "override": {}
      }
-    }
+    },
+    "title": {}
    }
   },
   "auth": []
@@ -139,15 +159,15 @@
   "init_ms": null,
   "new_ms": null,
   "ready_ms": null,
-  "first_turn_ms": 150.7885828614235,
-  "cold_to_first_answer_ms": 152.68045850098133,
-  "warm_first_chunk_ms": 1.260500866919756,
-  "warm_turn_ms": 1.3141464442014694,
-  "warm_p90_ms": 1.833207905292511,
-  "steps8_ms": 25.08579194545746,
+  "first_turn_ms": 147.26050000172108,
+  "cold_to_first_answer_ms": 148.81479204632342,
+  "warm_first_chunk_ms": 1.2844375160057098,
+  "warm_turn_ms": 1.3325625041034073,
+  "warm_p90_ms": 1.7817909829318523,
+  "steps8_ms": 25.987291999626905,
   "steps_ok": true,
   "second_new_ms": null,
-  "idle_rss_mb": 172.6875,
+  "idle_rss_mb": 172.09375,
   "processes": 1,
   "protocol": "pi-rpc"
  }
