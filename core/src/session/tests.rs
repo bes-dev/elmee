@@ -122,3 +122,21 @@ fn a_rewind_keeps_what_followed_as_a_branch_to_return_to() {
 
     assert_eq!(session.rewind(first).unwrap().checkpoint.as_deref(), Some("tree-before-first"));
 }
+
+#[test]
+fn a_turn_that_only_spoke_goes_back_to_the_tree_before_the_next_that_wrote() {
+    let mut session = Session::memory();
+    session.push(Message::user("a question")).unwrap();
+    session.push(Message::assistant_text("an answer")).unwrap();
+    session.push(Message::user("a change")).unwrap();
+    session.checkpoint("tree-before-the-change".into()).unwrap();
+    session.push(Message::user("another question")).unwrap();
+
+    let recorded: Vec<_> = session.prompts().into_iter().map(|prompt| prompt.checkpoint).collect();
+    let before_the_change = Some("tree-before-the-change".to_owned());
+    assert_eq!(
+        recorded,
+        [before_the_change.clone(), before_the_change, None],
+        "nothing was written after the last"
+    );
+}

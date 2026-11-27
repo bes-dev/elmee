@@ -83,10 +83,11 @@ something, spends one detached agent run writing what is worth keeping into
 `.elmee/memory/`. Everything expensive sits behind a cheap test, because most
 sessions teach nothing and re-reading those would cost more than the work did.
 
-A command the model ran and that finished well is recorded against the tree
-it ran on, and later writes make the record stale. That record says the command
-passed, not what it tested: its level is read off the words of the command
-line, so it never counts as proof. Proof is a check the harness runs itself —
+A command the model ran and that finished well is recorded. That record says
+the command passed, not what it tested: its level is read off the words of the
+command line, so it never counts as proof and is not bound to the tree it ran
+on. Proof is a check the harness runs itself, recorded against the tree it
+checked so that later writes make it stale —
 a `before_completion` hook, which may say what it proves with
 `"verifies": "static" | "integration" | "e2e"` — or an independent refutation
 of a goal claim. `--require-verification static|integration|e2e|external`

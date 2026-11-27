@@ -271,6 +271,9 @@ async fn compose(
     let mut tools = ToolSet::discover(config.cwd.clone())?;
     tools.fit_to(config.compact_chars);
     let explain = std::env::args_os().any(|arg| arg == "--explain-plugins");
+    // Whether a frontend stays to be spoken to again — a server, a terminal —
+    // rather than taking one prompt and leaving.
+    let interactive = config.acp || config.prompt.is_none();
     // The resolved allowlist is the one authority for every tool namespace.
     let offered =
         |name: &str| config.tools.as_ref().is_none_or(|allowed| allowed.iter().any(|tool| tool == name));
@@ -278,7 +281,7 @@ async fn compose(
     // runtime to answer them, so they are only offered when one exists. What
     // they need said rides in their own descriptions, so nothing else here has
     // to remember to say it.
-    if config.acp || config.prompt.is_none() {
+    if interactive {
         let host = host_tools(model_aliases.roster().as_deref());
         let any_offered =
             host.iter().any(|definition| definition["function"]["name"].as_str().is_some_and(offered));
@@ -294,7 +297,7 @@ async fn compose(
     };
     let mut builder = AgentBuilder::new(system_prompt)
         .limits(config.max_steps, config.compact_chars)
-        .interactive(config.acp || config.prompt.is_none());
+        .interactive(interactive);
     provider.context().set(session.path());
     builder.plugin(provider)?;
     builder.plugin(tools)?;
@@ -326,9 +329,14 @@ async fn compose(
     if let Some(path) = config.token_ledger.clone() {
         builder.plugin(elmee_plugin_ledger::FileTokenLedger::new(path))?;
     }
-    builder.plugin(
-        elmee_plugin_snapshot::Snapshots::new(&config.cwd).with_roots(config.additional_dirs.clone()),
-    )?;
+    // A one-shot run that keeps no session ends with nobody left to rewind
+    // it, so recording the tree would be a `git` run in front of its first
+    // tool for nothing.
+    if config.session.is_some() || interactive {
+        builder.plugin(
+            elmee_plugin_snapshot::Snapshots::new(&config.cwd).with_roots(config.additional_dirs.clone()),
+        )?;
+    }
     // MCP discovery may start user-declared processes to obtain their dynamic
     // schemas. Construct it only after every inert contribution has succeeded;
     // it is then the final atomic contribution before graph resolution.

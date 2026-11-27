@@ -207,7 +207,7 @@ async fn start_in(cwd: &Path, base: &Path, command: &str, grouped: bool) -> Resu
         .write(true)
         .open(log_path_in(base, &id))
         .await?;
-    let mut process = Command::new("sh");
+    let mut process = Command::new(elmee_plugin_process::shell());
     elmee_plugin_process::env::apply(process.as_std_mut());
     process
         .arg("-c")
@@ -417,8 +417,13 @@ pub fn stop(cwd: &Path, id: &str, force: bool) -> Result<()> {
     }
 }
 
+/// Atomic, so a reader never sees half a status, and not synced: a sync is
+/// eight milliseconds on every command, for a file that is handed over and
+/// removed a moment later. Power lost in between leaves a run that reads as
+/// still going, which is what it was when the machine stopped.
 fn record_exit(path: &Path, code: i32) -> std::io::Result<()> {
-    elmee_plugin_atomic::write(path, code.to_string().as_bytes(), Default::default())
+    let options = elmee_plugin_atomic::Options { durable: false, ..Default::default() };
+    elmee_plugin_atomic::write(path, code.to_string().as_bytes(), options)
 }
 
 async fn drain(mut stream: impl AsyncRead + Unpin, sender: mpsc::Sender<Vec<u8>>) -> std::io::Result<()> {

@@ -65,10 +65,13 @@ and a session is one file to move or back up.
 `/rewind` (or Esc Esc on an empty prompt) lists what was asked on the current
 branch. Choosing a prompt goes back to just before it — the conversation, the
 files as they were before that prompt's turn changed them, or both — and hands
-the prompt back for editing. The working tree is recorded before each turn in
-a store outside the project, and a rewind records the state it leaves first,
-so nothing it removes is gone. What was rewound over stays in the session as
-a branch, and `/tree` lists the branches and continues on the one chosen.
+the prompt back for editing. The working tree is recorded before a turn's
+first tool, in a store outside the project, so a turn that only answered
+recorded nothing and going back to it puts the files back to before the next
+turn that wrote: what you changed yourself in between stays. A rewind records
+the state it leaves first, so nothing it removes is gone. A one-shot run with
+`--no-session` records nothing: it ends with no conversation to rewind. What
+was rewound over stays in the session as a branch, and `/tree` lists the branches and continues on the one chosen.
 Opening a session, switching branch and going back all redraw the conversation
 as it then stands. This is not permanent deletion:
 history and mesh peers' copies are separate records.

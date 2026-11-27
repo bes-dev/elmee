@@ -72,10 +72,13 @@ impl Driver {
             None => None,
         };
         let mut turn = self.runtime.begin_turn(prompt.is_some());
-        // Recording the tree overlaps the model call: nothing may write
-        // until it lands, and the model call does not write.
-        if let (Some(snapshots), Some(prompt)) = (&self.snapshots, &prompt) {
-            self.agent.defer_barrier(snapshots.begin(prompt));
+        // Recording the tree is owed before the first tool and not begun
+        // before it: only a tool writes, and most turns that only speak
+        // would otherwise wait on `git` for a record of nothing.
+        if prompt.is_some()
+            && let Some(snapshots) = &self.snapshots
+        {
+            self.agent.defer_barrier(snapshots.begin());
         }
         let outcome = match prompt {
             Some(prompt) => self.agent.run_interactive(prompt, on_event, &mut self.runtime).await,
@@ -90,9 +93,9 @@ impl Driver {
             Ok(answer) => turn.finish(answer, true),
             Err(error) => turn.finish(&error.to_string(), false),
         }
-        // A turn that never called a tool leaves its snapshot unsettled, and
+        // A turn that never called a tool leaves its snapshot unbegun, and
         // the record must stay bounded by the turn that started it.
-        self.agent.settle_barriers().await;
+        self.agent.discard_barriers();
         outcome
     }
 }

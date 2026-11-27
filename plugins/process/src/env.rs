@@ -118,7 +118,7 @@ __elmee_status=$?
 env -0 > {dump:?} 2>/dev/null
 exit $__elmee_status"
     );
-    let mut command = tokio::process::Command::new("sh");
+    let mut command = tokio::process::Command::new(crate::shell());
     command.arg("-c").arg(&script).current_dir(cwd);
     apply(command.as_std_mut());
     let outcome = crate::command(&mut command, std::time::Duration::from_secs(600), "shell command").await;

@@ -14,6 +14,20 @@ mod group;
 pub use capture::{CommandOutput, command, feed};
 pub use group::{Group, scope};
 
+/// The shell a command line is handed to.
+///
+/// Named by path, and bash where there is one. `sh` is looked for along
+/// `PATH` on every command, and on macOS what it finds then starts bash
+/// itself: over a millisecond in front of each command, which is more than
+/// the rest of running one costs. And bash is what the command lines are
+/// written in — a model's `[[` and arrays fail where `sh` is dash.
+pub fn shell() -> &'static str {
+    static SHELL: std::sync::LazyLock<&str> = std::sync::LazyLock::new(|| {
+        if std::path::Path::new("/bin/bash").exists() { "/bin/bash" } else { "/bin/sh" }
+    });
+    *SHELL
+}
+
 /// Classify a successful command by the kind of verification it performed.
 /// This vocabulary belongs beside process execution, not in the agent kernel.
 pub fn verification_level(command: &str) -> Option<elmee_core::evidence::VerificationLevel> {

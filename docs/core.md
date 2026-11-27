@@ -128,8 +128,9 @@ tree-bound evidence stale. Evidence lives in memory for the life of the agent:
 proof of an earlier run is not proof of this one.
 
 The process plugin understands command ecosystems and supplies neutral
-`CommandEvidence`; core only applies the current tree fingerprint and finish
-requirement.
+`CommandEvidence`; core only applies the finish requirement, and the current
+tree fingerprint to what counts as proof. A command the model ran does not, so
+it is recorded without one: a fingerprint is two `git` runs.
 
 ### `plan.rs`
 

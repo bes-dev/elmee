@@ -30,7 +30,7 @@ enforce.
 ## What elmee does give you
 
 **Undo rather than prevention.** `plugins/snapshot` checkpoints the working tree
-before a turn and restores it after. It records state rather than intercepting
+before a turn's first tool and restores it after. It records state rather than intercepting
 calls, so `rm`, `sed -i`, an installer and a subagent's writes are all covered.
 Restoring puts changed files back and removes files created since, and records
 the state it leaves first, so a rewind is itself something to rewind from. What
@@ -73,7 +73,7 @@ than a claim the model makes.
 
 **Snapshots make a wrong action survivable** rather than impossible, which is
 the other half of the same posture: `plugins/snapshot` records tree state before
-a turn, so recovery does not depend on having predicted the action.
+a turn writes, so recovery does not depend on having predicted the action.
 
 Anything stronger — confinement, syscall filtering, network policy — is the
 operating system's, for the reasons above. If you build a guard, build it

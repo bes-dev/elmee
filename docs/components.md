@@ -226,13 +226,16 @@ without a daemon or database.
 
 **Role:** snapshot service.
 
-Records complete working-tree states in an external Git directory. State-based
+Records complete working-tree states in an external Git directory: one
+`git add --all`, then a copy of that store's index, which names the state
+without the two further `git` runs a commit would cost. State-based
 snapshots see edits made by shell commands, formatters and child agents that
 tool interception would miss. They never touch the project's own index, stash
 or history.
 
-Snapshotting surrounds an application-driven turn, outside the provider/tool
-loop: the host driver asks this service directly.
+The host driver hands the kernel a snapshot as work owed with each prompt;
+the kernel begins it before the turn's first tool, and a turn that calls none
+never starts `git`.
 
 ### `plugins/paths`
 

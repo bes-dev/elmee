@@ -206,6 +206,10 @@ fn answer_for(request: &str, served: usize) -> serde_json::Value {
         });
         return call("ask_user", questions.to_string());
     }
+    // Asked once: afterwards the command's result is in what is sent.
+    if request.contains(LEAVE_A_FILE) && !request.contains("\"role\":\"tool\"") {
+        return call("exec", serde_json::json!({ "command": "echo left > left.txt" }).to_string());
+    }
     if request.contains("background_task_completed") {
         return said("the helper reported: done");
     }
@@ -231,6 +235,9 @@ fn said(text: &str) -> serde_json::Value {
 }
 
 const PEER_MESSAGE: &str = "the build is green, note it";
+
+/// The prompt whose turn writes to the working tree.
+const LEAVE_A_FILE: &str = "leave a file";
 
 /// The prompt whose answer changes once the person has been asked.
 const SCRIPTED_TURN: &str = "pick one";

@@ -13,8 +13,8 @@ Concurrency exists around that owner:
 - child agents run behind host channels or processes;
 - process and network adapters overlap I/O;
 - authorized read batches may prepare concurrently;
-- whole-turn barriers can be computed asynchronously and settled before the
-  first tool effect.
+- whole-turn barriers are owed with the prompt, and begun and settled before
+  the first tool effect.
 
 Do not put an `Agent` behind a global `Mutex` to make a server. Create one agent
 per durable conversation, keep each on one local task and route messages to it.
@@ -46,7 +46,7 @@ The JSONL adapter provides:
 - a schema version on tree records;
 - refusal of a newer unsupported schema;
 - branch selection (`/clear`, `/rewind`, `/tree`) and the checkpoint of the
-  working tree taken before each prompt, as records of the same journal, so
+  working tree taken before a turn's first tool, as records of the same journal, so
   there is no second file to disagree with the first;
 - recovery that discards only a torn final line.
 
@@ -98,9 +98,10 @@ again — once. That is how a window nobody declared is learned.
 
 ## Evidence and workspace state
 
-Successful commands can return neutral `CommandEvidence`. Core records it with
-the current workspace fingerprint. Project completion hooks can emit the same
-neutral evidence at `BeforeFinish`.
+Successful commands can return neutral `CommandEvidence`. Core records it as
+having run, which proves nothing and so carries no fingerprint. Project
+completion hooks can emit the same neutral evidence at `BeforeFinish`, where
+it is proof and is recorded with the current workspace fingerprint.
 
 Before accepting a required verification level, core refreshes the fingerprint
 and marks evidence from another tree stale. Evidence is never written to

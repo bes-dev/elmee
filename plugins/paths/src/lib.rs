@@ -52,6 +52,9 @@ pub fn project_root(cwd: &Path) -> PathBuf {
 /// Do not derive this from the parent of the common Git directory: separate
 /// repositories may keep their metadata in sibling directories.
 fn primary_worktree_of(cwd: &Path) -> PathBuf {
+    if let Some(known) = plain_checkout(cwd) {
+        return known;
+    }
     std::process::Command::new("git")
         .args(["worktree", "list", "--porcelain", "-z"])
         .current_dir(cwd)
@@ -61,6 +64,28 @@ fn primary_worktree_of(cwd: &Path) -> PathBuf {
         .and_then(|output| primary_worktree(&output.stdout))
         .and_then(|repository| repository.canonicalize().ok())
         .unwrap_or_else(|| cwd.to_owned())
+}
+
+/// The answer where it can be read off the directories, which is nearly
+/// always: starting git to be told costs every first session milliseconds.
+/// A `.git` that is a directory is a primary worktree, and no sign of git up
+/// to the root is no repository. Anything else — a linked worktree or a
+/// submodule, whose `.git` is a file; a bare repository; an environment that
+/// points git somewhere — is git's to answer.
+fn plain_checkout(cwd: &Path) -> Option<PathBuf> {
+    if std::env::var_os("GIT_DIR").is_some() {
+        return None;
+    }
+    for directory in cwd.canonicalize().ok()?.ancestors() {
+        let marker = directory.join(".git");
+        if marker.is_dir() {
+            return Some(directory.to_owned());
+        }
+        if marker.exists() || (directory.join("HEAD").is_file() && directory.join("objects").is_dir()) {
+            return None;
+        }
+    }
+    Some(cwd.to_owned())
 }
 
 fn primary_worktree(output: &[u8]) -> Option<PathBuf> {

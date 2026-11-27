@@ -34,9 +34,7 @@ Because the others are applications, and this one is a part.
 | Memory while idle, as a server | 7 MB | 173 MB | 235 MB | 645 MB |
 | Overhead of one text turn | 34 ms | 148 ms | 236 ms | 160 ms |
 
-It is not the fastest at everything: a tool call costs elmee about 24 ms of
-its own against pi's 4, because every command's result is recorded against the
-state of the working tree. The scripts, the method and the raw results are in
+The scripts, the method and the raw results are in
 [`benchmarks/harnesses`](benchmarks/harnesses) (Codex 0.167, Claude Code
 2.1.322, pi 1.4.0; Apple M4 Max).
 
@@ -154,7 +152,7 @@ wrong, and the ones that hold are outside the process: an account, a
 container, a VM.
 
 What you get instead is undo, and a place to attach a guard. The working tree
-is checkpointed before every turn; a project's `before_tool_call` hook runs
+is checkpointed before a turn's first tool; a project's `before_tool_call` hook runs
 before every tool call and can refuse it without asking anyone.
 [SECURITY.md](SECURITY.md) says what this means for deployment — read it before
 giving elmee anything you care about.

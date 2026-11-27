@@ -12,6 +12,12 @@
 //! own history, index, and stash are never touched, and the project's
 //! `.gitignore` still applies (build output stays out). A project that is not
 //! a git repository works the same way.
+//!
+//! A snapshot is that store's index, copied: `git add --all` has by then put
+//! every file's content into the store, and the index is the list of which
+//! content was where. Committing it as well was two more `git` runs, each
+//! several milliseconds of starting up, in front of the first tool of every
+//! turn — to give a name to something a file copy already names.
 
 use std::path::{Path, PathBuf};
 
@@ -24,12 +30,6 @@ pub struct Snapshots {
     roots: Vec<Snapshots>,
 }
 
-/// Recording the tree costs three `git` runs, and `git` spends about eight
-/// milliseconds starting up before it does two tenths of a millisecond of
-/// work — so a snapshot taken inline was forty milliseconds of pure process
-/// overhead in front of every prompt. Nothing may *write* until it lands, but
-/// the model call does not write, so `begin` overlaps the two and hands the
-/// loop an [`elmee_core::Pending`] to settle before the first tool.
 pub use elmee_core::Pending;
 
 impl Snapshots {
@@ -51,17 +51,28 @@ impl Snapshots {
         self
     }
 
-    async fn git(&self, args: &[&str]) -> Option<String> {
+    /// Run git against the store, reading and writing `index` as its index:
+    /// the store's own to look at the tree, a snapshot to say what it held.
+    async fn git(&self, index: &Path, args: &[&str]) -> Option<String> {
         let output = Command::new("git")
             .arg("--git-dir")
             .arg(&self.git_dir)
             .arg("--work-tree")
             .arg(&self.cwd)
             .args(args)
+            .env("GIT_INDEX_FILE", index)
             .output()
             .await
             .ok()?;
         output.status.success().then(|| String::from_utf8_lossy(&output.stdout).trim().to_owned())
+    }
+
+    fn index(&self) -> PathBuf {
+        self.git_dir.join("index")
+    }
+
+    fn snapshot(&self, name: &str) -> PathBuf {
+        self.git_dir.join("elmee-snapshots").join(name)
     }
 
     /// Make sure the store exists before git is asked to use it.
@@ -75,7 +86,13 @@ impl Snapshots {
             return Some(());
         }
         std::fs::create_dir_all(&self.git_dir).ok()?;
-        self.git(&["init", "--quiet"]).await.map(|_| ())
+        self.git(&self.index(), &["init", "--quiet"]).await.map(|_| ())
+    }
+
+    /// Bring the store's index up to the tree as it stands.
+    async fn scan(&self) -> Option<()> {
+        self.ensure_store().await?;
+        self.git(&self.index(), &["add", "--all"]).await.map(|_| ())
     }
 
     /// Content identity of everything a snapshot would restore. Unlike a
@@ -84,7 +101,8 @@ impl Snapshots {
     pub async fn fingerprint(&self) -> Option<String> {
         let mut trees = Vec::new();
         for root in std::iter::once(self).chain(&self.roots) {
-            trees.push((root.cwd.clone(), root.fingerprint_one().await?));
+            root.scan().await?;
+            trees.push((root.cwd.clone(), root.git(&root.index(), &["write-tree"]).await?));
         }
         if self.roots.is_empty() {
             return trees.pop().map(|(_, tree)| tree);
@@ -92,61 +110,50 @@ impl Snapshots {
         Some(format!("{:016x}", elmee_core::stable_hash(serde_json::to_vec(&trees).ok()?)))
     }
 
-    async fn fingerprint_one(&self) -> Option<String> {
-        self.ensure_store().await?;
-        self.git(&["add", "--all"]).await?;
-        self.git(&["write-tree"]).await
+    /// Recording the tree, as work owed before anything writes to it and not
+    /// begun until then.
+    pub fn begin(&self) -> Pending {
+        let snapshots = self.clone();
+        Pending::new(async move { snapshots.take().await })
     }
 
-    /// Start recording the tree, to be settled before anything writes to it.
-    pub fn begin(&self, summary: &str) -> Pending {
-        let (snapshots, summary) = (self.clone(), summary.to_owned());
-        let handle = tokio::spawn(async move { snapshots.take(&summary).await });
-        Pending::new(async move { handle.await.ok().flatten() })
-    }
-
-    /// Record the tree as it stands, labelled with the prompt about to run.
-    /// Returns nothing when git is unavailable — snapshots are a convenience,
-    /// never a precondition for working.
-    pub async fn take(&self, summary: &str) -> Option<String> {
+    /// Record the tree as it stands. Returns nothing when git is unavailable
+    /// — snapshots are a convenience, never a precondition for working.
+    pub async fn take(&self) -> Option<String> {
         if self.roots.is_empty() {
-            return self.take_one(summary).await;
+            return self.take_one().await;
         }
-        let mut commits = Vec::new();
+        let mut snapshots = Vec::new();
         for root in std::iter::once(self).chain(&self.roots) {
-            commits.push((root.cwd.clone(), root.take_one(summary).await?));
+            snapshots.push((root.cwd.clone(), root.take_one().await?));
         }
-        Some(format!("roots-v1:{}", serde_json::to_string(&commits).ok()?))
+        Some(format!("roots-v1:{}", serde_json::to_string(&snapshots).ok()?))
     }
 
-    async fn take_one(&self, summary: &str) -> Option<String> {
-        self.ensure_store().await?;
-        self.git(&["add", "--all"]).await?;
-        let summary = summary.lines().next().unwrap_or("(no prompt)").chars().take(72).collect::<String>();
-        // Our own identity, because this is our own store rather than the
-        // user's repository — and because a machine with no global git identity
-        // failed every commit with "Author identity unknown", silently, which
-        // is what a failed snapshot is by design. `/rewind` was simply always
-        // empty there, and so was anything else built on snapshots.
-        self.git(&[
-            "-c",
-            "user.name=elmee",
-            "-c",
-            "user.email=elmee@localhost",
-            "commit",
-            "--quiet",
-            "--allow-empty",
-            "--no-gpg-sign",
-            "-m",
-            &summary,
-        ])
-        .await?;
-        self.git(&["rev-parse", "HEAD"]).await
+    async fn take_one(&self) -> Option<String> {
+        self.scan().await?;
+        let index = self.index();
+        // A tree with nothing in it leaves no index behind, and a snapshot of
+        // nothing is still one: restoring it removes what was made since.
+        if !index.exists() {
+            self.git(&index, &["read-tree", "--empty"]).await?;
+        }
+        let bytes = std::fs::read(&index).ok()?;
+        let name = format!("{:016x}", elmee_core::stable_hash(bytes.iter().copied()));
+        let kept = self.snapshot(&name);
+        if !kept.exists() {
+            // Renamed into place, so a snapshot is whole or absent.
+            let partial = kept.with_extension(std::process::id().to_string());
+            std::fs::create_dir_all(kept.parent()?).ok()?;
+            std::fs::write(&partial, bytes).ok()?;
+            std::fs::rename(partial, kept).ok()?;
+        }
+        Some(name)
     }
 
     /// Put the working tree back to a snapshot: files changed since are
     /// restored, files created since are removed. Ignored files are left
-    /// alone.
+    /// alone. Returns the snapshot of the state it left.
     ///
     /// The tree as it stands is recorded first, for two reasons that are one
     /// step. A file created after the last snapshot is unknown to the store,
@@ -155,40 +162,37 @@ impl Snapshots {
     /// tree in between. And removing files is the one thing here that cannot
     /// be taken back from the project alone, so the state being left is itself
     /// a snapshot to return to: nothing a rewind removes is gone.
-    pub async fn restore(&self, commit: &str) -> Result<(), String> {
+    pub async fn restore(&self, snapshot: &str) -> Result<String, String> {
         let roots: Vec<&Snapshots> = std::iter::once(self).chain(&self.roots).collect();
-        let commits: Vec<(PathBuf, String)> = match commit.strip_prefix("roots-v1:") {
+        let snapshots: Vec<(PathBuf, String)> = match snapshot.strip_prefix("roots-v1:") {
             Some(encoded) => {
                 serde_json::from_str(encoded).map_err(|_| "invalid workspace checkpoint".to_owned())?
             }
-            None if self.roots.is_empty() => vec![(self.cwd.clone(), commit.into())],
+            None if self.roots.is_empty() => vec![(self.cwd.clone(), snapshot.into())],
             None => {
                 return Err("checkpoint does not include the current additional workspace directories".into());
             }
         };
-        if commits.len() != roots.len()
-            || commits.iter().zip(&roots).any(|((path, commit), root)| {
-                path != &root.cwd
-                    || !matches!(commit.len(), 40 | 64)
-                    || !commit.bytes().all(|byte| byte.is_ascii_hexdigit())
-            })
+        if snapshots.len() != roots.len()
+            || snapshots.iter().zip(&roots).any(|((path, _), root)| path != &root.cwd)
         {
             return Err("checkpoint workspace directories differ; nothing was changed".into());
         }
-        for ((_, commit), root) in commits.iter().zip(&roots) {
-            root.git(&["cat-file", "-e", &format!("{commit}^{{commit}}")])
-                .await
-                .ok_or_else(|| "checkpoint is unavailable; nothing was changed".to_owned())?;
+        // The name is joined to a path, so it is checked to be a name.
+        if snapshots.iter().zip(&roots).any(|((_, name), root)| {
+            !name.bytes().all(|byte| byte.is_ascii_hexdigit()) || !root.snapshot(name).is_file()
+        }) {
+            return Err("checkpoint is unavailable; nothing was changed".into());
         }
-        self.take("before rewind").await.ok_or_else(|| {
+        let left = self.take().await.ok_or_else(|| {
             "cannot record the working tree before restoring; nothing was changed".to_owned()
         })?;
-        for ((_, commit), root) in commits.iter().zip(&roots) {
-            root.git(&["read-tree", "-u", "--reset", commit]).await.ok_or_else(|| {
-                format!("cannot restore snapshot {} in {}", &commit[..8], root.cwd.display())
-            })?;
+        for ((_, name), root) in snapshots.iter().zip(&roots) {
+            let failed = || format!("cannot restore snapshot {name} in {}", root.cwd.display());
+            let tree = root.git(&root.snapshot(name), &["write-tree"]).await.ok_or_else(failed)?;
+            root.git(&root.index(), &["read-tree", "-u", "--reset", &tree]).await.ok_or_else(failed)?;
         }
-        Ok(())
+        Ok(left)
     }
 }
 
@@ -216,7 +220,7 @@ mod tests {
         std::fs::write(main.join("a"), "original main").unwrap();
         std::fs::write(extra.join("b"), "original extra").unwrap();
         let snapshots = Snapshots::new(&main).with_roots(vec![extra.clone()]);
-        let Some(checkpoint) = snapshots.take("both roots").await else { return };
+        let Some(checkpoint) = snapshots.take().await else { return };
         let before = snapshots.fingerprint().await.unwrap();
         std::fs::write(extra.join("b"), "changed extra").unwrap();
         assert_ne!(
@@ -240,6 +244,19 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_directory_with_nothing_in_it_is_a_snapshot_to_return_to() {
+        let cwd = std::env::temp_dir().join(elmee_core::unique("empty-snapshot"));
+        std::fs::create_dir_all(&cwd).unwrap();
+        let snapshots = Snapshots::new(&cwd);
+        let Some(empty) = snapshots.take().await else { return }; // no git: skip
+        std::fs::write(cwd.join("made.txt"), "by the first turn").unwrap();
+        snapshots.restore(&empty).await.unwrap();
+        assert!(!cwd.join("made.txt").exists());
+        let _ = std::fs::remove_dir_all(&snapshots.git_dir);
+        let _ = std::fs::remove_dir_all(cwd);
+    }
+
+    #[tokio::test]
     async fn snapshots_round_trip_a_working_tree() {
         let cwd = std::env::temp_dir().join(format!("elmee-snap-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&cwd);
@@ -248,31 +265,27 @@ mod tests {
 
         let snapshots = Snapshots::new(&cwd);
         let _ = std::fs::remove_dir_all(&snapshots.git_dir);
-        let Some(commit) = snapshots.take("first prompt").await else { return }; // no git: skip
+        let Some(first) = snapshots.take().await else { return }; // no git: skip
         let original_tree = snapshots.fingerprint().await.unwrap();
 
         // A later turn rewrites the file and adds another; restoring undoes both.
         std::fs::write(cwd.join("a.txt"), "changed by bash").unwrap();
         std::fs::write(cwd.join("b.txt"), "added by bash").unwrap();
         assert_ne!(snapshots.fingerprint().await.as_deref(), Some(original_tree.as_str()));
-        snapshots.take("second prompt").await.unwrap();
-        snapshots.restore(&commit).await.unwrap();
+        snapshots.restore(&first).await.unwrap();
 
         assert_eq!(std::fs::read_to_string(cwd.join("a.txt")).unwrap(), "original");
         assert!(!cwd.join("b.txt").exists());
-        // History is kept, not rewound — and the state left behind joins it.
-        let log = snapshots.git(&["log", "--format=%s"]).await.unwrap();
-        assert_eq!(log.lines().collect::<Vec<_>>(), ["before rewind", "second prompt", "first prompt"]);
 
-        // The case the scan above used to hide: a file created since the last
-        // snapshot, with nothing having looked at the tree in between.
+        // The case a scan in between used to hide: a file created since the
+        // last snapshot, with nothing having looked at the tree in between.
         std::fs::write(cwd.join("c.txt"), "created and never scanned").unwrap();
-        snapshots.restore(&commit).await.unwrap();
+        let left = snapshots.restore(&first).await.unwrap();
         assert!(!cwd.join("c.txt").exists(), "a file made after the snapshot goes with the rewind");
         // And it is not gone: the rewind recorded what it removed.
-        let undo = snapshots.git(&["rev-parse", "HEAD"]).await.unwrap();
-        snapshots.restore(&undo).await.unwrap();
+        snapshots.restore(&left).await.unwrap();
         assert_eq!(std::fs::read_to_string(cwd.join("c.txt")).unwrap(), "created and never scanned");
+        assert!(snapshots.restore("../index").await.is_err(), "a snapshot is named, never pathed");
         let _ = std::fs::remove_dir_all(&snapshots.git_dir);
         let _ = std::fs::remove_dir_all(cwd);
     }

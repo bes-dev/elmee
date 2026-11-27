@@ -104,7 +104,7 @@ fn fill_positions(text: &str, words: &[&str]) -> String {
 const SUBSTITUTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
 async fn run_substitution(command: &str, cwd: &Path) -> String {
-    let mut process = tokio::process::Command::new("sh");
+    let mut process = tokio::process::Command::new(elmee_plugin_process::shell());
     elmee_plugin_process::env::apply(process.as_std_mut());
     process.arg("-c").arg(command).current_dir(cwd);
     match tokio::time::timeout(SUBSTITUTION_TIMEOUT, elmee_plugin_process::scope(&mut process).output()).await

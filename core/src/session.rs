@@ -285,13 +285,26 @@ impl Session {
     }
 
     /// What a person asked on the active branch, oldest first.
+    ///
+    /// The tree is recorded before a turn's first tool, so a turn that only
+    /// spoke has no record of its own — and needs none: it wrote nothing, so
+    /// the tree before it is the tree before the next turn that did.
     pub fn prompts(&self) -> Vec<Prompt> {
-        self.branch()
+        let mut prompts: Vec<Prompt> = self
+            .branch()
             .unwrap_or_default()
             .into_iter()
             .filter(|entry| asked(entry))
             .map(|entry| self.prompt(entry))
-            .collect()
+            .collect();
+        let mut next = None;
+        for prompt in prompts.iter_mut().rev() {
+            match &prompt.checkpoint {
+                Some(recorded) => next = Some(recorded.clone()),
+                None => prompt.checkpoint = next.clone(),
+            }
+        }
+        prompts
     }
 
     fn prompt(&self, entry: &Entry) -> Prompt {

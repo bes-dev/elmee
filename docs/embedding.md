@@ -108,7 +108,8 @@ carries the stateless MCP revision's metadata; there is no handshake to hold.
 
 **Rewind over the protocol.** `_session/history` answers with the prompts on
 the line the conversation stands on — each with an `id` and whether the files
-were recorded before it — and every other line a rewind left behind.
+can be put back to before it, which they can once its turn or a later one has
+run a tool — and every other line a rewind left behind.
 `_session/rewind` with a `promptId` goes back to before that prompt and hands
 its text back to be edited; `restore` is `everything` (the default),
 `conversation` or `files`. `_session/checkout` with a branch's `leaf` returns

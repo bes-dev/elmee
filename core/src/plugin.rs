@@ -111,7 +111,8 @@ impl CommandOutcome {
     }
 }
 
-/// A value being computed while the turn does something else.
+/// Work a turn owes before its first tool, and does not begin until then: a
+/// turn that calls no tool never pays for it.
 pub struct Pending(Pin<Box<dyn Future<Output = Option<String>> + Send>>);
 
 impl Pending {

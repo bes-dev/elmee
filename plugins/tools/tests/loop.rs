@@ -186,12 +186,12 @@ async fn a_screenshot_command_brings_its_picture_to_the_next_request() {
     let _ = fs::remove_dir_all(cwd);
 }
 
-/// The snapshot is started before the model call and settled before the first
-/// tool. What matters is that the overlap did not cost correctness: the
-/// recorded tree must still be the one the turn began with, not one a tool has
-/// already written to.
+/// The snapshot is owed with the prompt and taken only when a tool is about
+/// to run. What matters is that waiting did not cost correctness: the recorded
+/// tree must still be the one the turn began with, not one a tool has already
+/// written to.
 #[tokio::test]
-async fn a_snapshot_started_behind_the_model_still_lands_before_any_tool_writes() {
+async fn a_snapshot_owed_with_the_prompt_lands_before_any_tool_writes() {
     let cwd = std::env::temp_dir().join(format!("elmee-snapshot-race-{}", std::process::id()));
     let _ = fs::remove_dir_all(&cwd);
     fs::create_dir_all(&cwd).unwrap();
@@ -216,7 +216,7 @@ async fn a_snapshot_started_behind_the_model_still_lands_before_any_tool_writes(
         Session::memory(),
         &cwd,
     );
-    agent.defer_barrier(snapshots.begin("overwrite the file"));
+    agent.defer_barrier(snapshots.begin());
     agent
         .run_interactive("go".into(), &mut |_| {}, &mut elmee_core::interaction::RejectInteractions)
         .await

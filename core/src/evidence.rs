@@ -1,7 +1,7 @@
 //! Tree-bound evidence for completion claims.
 //!
 //! A command saying "tests passed" is only true of the tree it observed. Each
-//! record therefore carries the snapshot tree hash and is marked stale when
+//! proof therefore carries the snapshot tree hash and is marked stale when
 //! the working tree moves. It lives as long as the agent does: proof of an
 //! earlier run is not proof of this one, so nothing is read back from disk.
 
@@ -53,12 +53,13 @@ impl VerificationLevel {
 }
 
 /// The kind of entry that records a command the model ran. It says the
-/// command finished well on this tree, which is a fact — and a level, which is
-/// a guess from the words in the command line: `echo cargo test` reads like a
-/// test run and tests nothing. So it is kept, a plan step may cite it as
-/// having run, and it never satisfies a required level of verification. Only
-/// what the harness ran itself as a configured check, or checked
-/// independently, does that.
+/// command finished well, which is a fact — and a level, which is a guess
+/// from the words in the command line: `echo cargo test` reads like a test
+/// run and tests nothing. So it is kept, a plan step may cite it as having
+/// run, and it never satisfies a required level of verification. Only what
+/// the harness ran itself as a configured check, or checked independently,
+/// does that — and only that is bound to a tree, because hashing one is two
+/// `git` runs that would otherwise stand in front of every command.
 pub const OBSERVED: &str = "command";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,14 +124,14 @@ impl EvidenceManifest {
         });
     }
 
-    /// Nothing has been proven about this tree yet, so nothing can go stale.
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+    /// Whether anything here was proven about a tree, and so can go stale.
+    pub fn bound_to_a_tree(&self) -> bool {
+        self.entries.iter().any(|entry| entry.kind != OBSERVED)
     }
 
     pub fn refresh(&mut self, current_tree_hash: Option<String>) {
         self.current_tree_hash = current_tree_hash.clone();
-        for entry in &mut self.entries {
+        for entry in self.entries.iter_mut().filter(|entry| entry.kind != OBSERVED) {
             entry.stale = entry.tree_hash.is_none() || entry.tree_hash != current_tree_hash;
         }
     }
@@ -225,6 +226,31 @@ mod tests {
         manifest.refresh(Some("tree".into()));
         assert_eq!(manifest.level(), VerificationLevel::Integration);
         assert!(manifest.satisfies(VerificationLevel::External));
+    }
+
+    #[test]
+    fn a_command_the_model_ran_is_bound_to_no_tree_and_never_goes_stale() {
+        let mut manifest = EvidenceManifest::default();
+        manifest.record(
+            OBSERVED,
+            "ls completed successfully",
+            Some("ls".into()),
+            None,
+            "a",
+            VerificationLevel::Unverified,
+        );
+        assert!(!manifest.bound_to_a_tree(), "nothing here is worth hashing the tree for");
+        manifest.refresh(Some("tree".into()));
+        assert!(!manifest.entries[0].stale);
+        manifest.record(
+            "completion_hook",
+            "passed",
+            None,
+            Some("tree".into()),
+            "ok",
+            VerificationLevel::Static,
+        );
+        assert!(manifest.bound_to_a_tree());
     }
 
     /// `echo cargo test` reads like a test run and tests nothing: a command the

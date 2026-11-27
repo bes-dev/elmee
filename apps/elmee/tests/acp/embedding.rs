@@ -191,7 +191,7 @@ fn a_client_can_ask_who_is_signed_in() {
 #[test]
 fn a_client_rewinds_a_conversation_and_returns_to_the_line_it_left() {
     let (home, work) = scratch("rewind");
-    let mut client = Client::start(&home, &work, &stub_provider("ok"), &[]);
+    let mut client = Client::start(&home, &work, &scripted_provider(), &[]);
     client.hello();
     let session = client.open(&work);
     prompt(&mut client, &session, "first");
@@ -224,15 +224,23 @@ fn a_client_rewinds_a_conversation_and_returns_to_the_line_it_left() {
         .collect();
     assert_eq!(texts, ["first", "second"], "{returned}");
 
-    // The files alone can go back, where they were recorded: the
-    // conversation stays where it is and no prompt is handed back.
-    assert_eq!(prompts[1]["checkpoint"], true, "the tree was recorded before the prompt's turn: {prompts:?}");
-    std::fs::write(work.join("stray.txt"), "written after the second prompt").unwrap();
-    let files = json!({ "sessionId": session, "promptId": prompts[1]["id"], "restore": "files" });
+    // The tree is recorded before a turn's first tool, so turns that only
+    // spoke recorded nothing — until one after them writes, and then going
+    // back to any of them is going back to before that write.
+    assert_eq!(prompts[1]["checkpoint"], false, "nothing was written, so nothing was recorded: {prompts:?}");
+    prompt(&mut client, &session, LEAVE_A_FILE);
+    assert!(work.join("left.txt").exists(), "the turn's tool ran");
+    let (tree, _) = client.call("_session/history", json!({ "sessionId": session }));
+    let prompts = tree["result"]["prompts"].as_array().expect("prompts").clone();
+    assert_eq!(prompts[0]["checkpoint"], true, "{prompts:?}");
+
+    // The files alone can go back: the conversation stays where it is and no
+    // prompt is handed back.
+    let files = json!({ "sessionId": session, "promptId": prompts[0]["id"], "restore": "files" });
     let (restored, _) = client.call("_session/rewind", files);
     assert!(restored["result"]["prompt"].is_null(), "{restored}");
-    assert_eq!(restored["result"]["prompts"].as_array().map(Vec::len), Some(2));
-    assert!(!work.join("stray.txt").exists(), "the tree is as it was before that prompt");
+    assert_eq!(restored["result"]["prompts"].as_array().map(Vec::len), Some(3));
+    assert!(!work.join("left.txt").exists(), "the tree is as it was before the turn wrote to it");
 
     let (unknown, _) = client.call("_session/rewind", json!({ "sessionId": session, "promptId": 999_999 }));
     assert!(unknown.get("error").is_some(), "{unknown}");

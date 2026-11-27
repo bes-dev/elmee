@@ -104,8 +104,8 @@ pub struct Agent {
     token_ledger: Option<std::rc::Rc<dyn budget::TokenLedger>>,
     evidence: EvidenceManifest,
     required_verification: VerificationLevel,
-    /// Asynchronous application barriers started before the model answers and
-    /// settled before tools can cause external effects.
+    /// Application barriers handed over with the prompt and settled before
+    /// tools can cause external effects.
     pending_barriers: Vec<Pending>,
     workspace: std::rc::Rc<dyn crate::Workspace>,
     /// Whether the last turn was ended by the step guard rather than by the
@@ -182,11 +182,18 @@ impl Agent {
         self.pending_barriers.push(pending);
     }
 
+    /// Forget barriers no tool came to need. A turn that only spoke wrote
+    /// nothing, and the next one must not inherit work that described this
+    /// one's beginning.
+    pub fn discard_barriers(&mut self) {
+        self.pending_barriers.clear();
+    }
+
     /// Settle application barriers. A checkpoint one of them returns is the
     /// working tree as it was before this turn wrote to it, and is kept with
     /// the prompt that started the turn — which is what lets a later rewind
     /// put the files back as well as the conversation.
-    pub async fn settle_barriers(&mut self) {
+    async fn settle_barriers(&mut self) {
         for pending in std::mem::take(&mut self.pending_barriers) {
             if let Some(checkpoint) = pending.settle().await {
                 // Losing the link costs a files-too rewind, never the turn.
@@ -228,11 +235,10 @@ impl Agent {
     }
 
     async fn refresh_evidence(&mut self) {
-        // Hashing the tree is two `git` runs, and all it can do is mark
-        // recorded evidence stale. With nothing recorded there is nothing to
-        // mark — the usual case, since only a recognised test command becomes
-        // evidence at all — so the runs would buy nothing.
-        if self.evidence.is_empty() {
+        // Hashing the tree is two `git` runs, and all it can do is mark proof
+        // stale. A command the model ran is not proof, so the usual turn has
+        // nothing to mark and the runs would buy nothing.
+        if !self.evidence.bound_to_a_tree() {
             return;
         }
         let tree = self.tree_hash().await;
@@ -529,9 +535,8 @@ impl Agent {
         F: FnMut(AgentEvent) + Send,
         I: Interactor,
     {
-        // Tools are the only thing that writes, so this is the one moment the
-        // Application barriers started before the model call must land before
-        // the first external effect.
+        // Tools are the only thing that writes, so this is the one moment
+        // application barriers must land: before the first external effect.
         self.settle_barriers().await;
         // A pure plugin batch can overlap authorized reads. Classify without
         // executing anything so host/internal effects retain call order.
@@ -648,12 +653,14 @@ impl Agent {
                 && outcome.ok
                 && let Some(evidence) = outcome.evidence
             {
-                let tree = self.tree_hash().await;
+                // No tree hash: it would cost two `git` runs in front of
+                // every command, to date a record that proves nothing and that
+                // a plan cites by its command line alone.
                 self.evidence.record(
                     crate::evidence::OBSERVED,
                     format!("{} completed successfully", evidence.command),
                     Some(evidence.command),
-                    tree,
+                    None,
                     &outcome.output,
                     evidence.level,
                 );
