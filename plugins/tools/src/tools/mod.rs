@@ -130,12 +130,30 @@ impl ToolSet {
         let arguments = &call.function.arguments;
         match call.function.name.as_str() {
             "read" => files::read(&mut self.workspace, &parse(arguments)?),
-            "apply_patch" => patch::apply(&mut self.workspace, &parse(arguments)?),
+            "apply_patch" => self.patch(parse(arguments)?).await,
             "exec" => shell::exec(self.workspace.root(), &parse(arguments)?).await,
             "write_run" => shell::feed(self.workspace.root(), &parse(arguments)?).await,
             "stop_run" => shell::stop(self.workspace.root(), &parse(arguments)?),
             name => Err(Error::Tool(format!("unknown tool: {name}"))),
         }
+    }
+}
+
+impl ToolSet {
+    /// Apply a patch, then run the check it carried.
+    ///
+    /// An edit and the command that shows it worked were two model requests
+    /// for one thought: measured, a quarter of a small fix. The patch stands
+    /// whatever the check says, so a check that could not start is reported
+    /// beside it, not instead of it.
+    async fn patch(&mut self, args: schema::PatchArgs) -> Result<String> {
+        let applied = patch::apply(&mut self.workspace, &args)?;
+        let Some(command) = args.check else { return Ok(applied) };
+        let check = schema::ExecArgs { command, yield_ms: None, max_output_bytes: None };
+        let output = shell::exec(self.workspace.root(), &check)
+            .await
+            .unwrap_or_else(|error| format!("[the check did not run: {error}]"));
+        Ok(format!("{applied}\n$ {}\n{output}", check.command))
     }
 }
 

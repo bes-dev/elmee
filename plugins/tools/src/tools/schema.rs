@@ -53,7 +53,7 @@ pub(super) fn definitions() -> Vec<Value> {
              +line to add\n\
              *** Delete File: path/to/gone.rs\n\
              *** End Patch",
-            r#"{"type":"object","properties":{"patch":{"type":"string"}},"required":["patch"]}"#,
+            r#"{"type":"object","properties":{"patch":{"type":"string"},"check":{"type":"string","description":"A shell command to run once the patch has applied — the test or build that shows it worked. Its output comes back with the result, so the edit and its check are one call"}},"required":["patch"]}"#,
         ),
         (
             "exec",
@@ -116,7 +116,7 @@ macro_rules! args {
 args! {
     ReadArgs { path: String, offset: Option<usize>, limit: Option<usize> }
     ImageArgs { path: String }
-    PatchArgs { patch: String }
+    PatchArgs { patch: String, check: Option<String> }
     ExecArgs { command: String, yield_ms: Option<u64>, max_output_bytes: Option<u64> }
     WriteRunArgs { id: String, input: Option<String>, newline: Option<bool>, yield_ms: Option<u64> }
     StopRunArgs { id: String, force: Option<bool> }

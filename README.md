@@ -125,8 +125,8 @@ it, with not one line of agent loop of its own.
 
 ## What is in the box
 
-- **Tools**: read, patch, shell with background runs, image viewing, web
-  fetch and search.
+- **Tools**: read, a patch that can carry the command that checks it, shell
+  with background runs, image viewing, web fetch and search.
 - **[MCP](docs/customization.md#mcp)** over stdio and Streamable HTTP — and,
   embedded, over the connection the client already has.
 - **[Skills](docs/customization.md)** as plain `SKILL.md` files that are also

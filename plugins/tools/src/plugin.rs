@@ -27,15 +27,22 @@ impl elmee_core::Handler for ToolSet {
 }
 
 fn evidence_command(call: &ToolCall, output: &str) -> Option<String> {
+    // Where a call says what it ran: its own command, or the check a patch
+    // carried.
+    let field = match call.function.name.as_str() {
+        "exec" => "command",
+        "apply_patch" => "check",
+        _ => return None,
+    };
     // Evidence is a command that finished here and finished well: one still
     // going, or one nobody waited for, has proved nothing yet.
-    (call.function.name == "exec"
-        && !output.contains("[exit status:")
+    (!output.contains("[exit status:")
+        && !output.contains("[the check did not run:")
         && !output.starts_with("Started run ")
         && !output.contains("is still going"))
     .then(|| serde_json::from_str::<serde_json::Value>(&call.function.arguments).ok())
     .flatten()
-    .and_then(|args| args["command"].as_str().map(str::to_owned))
+    .and_then(|args| args[field].as_str().map(str::to_owned))
 }
 
 impl Plugin for ToolSet {

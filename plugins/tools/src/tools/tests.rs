@@ -218,6 +218,30 @@ async fn a_patch_over_someone_else_s_change_is_refused_until_the_file_is_read_ag
 }
 
 #[tokio::test]
+async fn a_patch_carries_its_own_check_and_stands_whatever_the_check_says() {
+    let root = std::env::temp_dir().join(elmee_core::unique("patch-check"));
+    fs::create_dir_all(&root).unwrap();
+    let mut tools = ToolSet::discover(root.clone()).unwrap();
+    let checked = |id: &str, patch: &str, check: &str| {
+        ToolCall::new(id, "apply_patch", serde_json::json!({ "patch": patch, "check": check }).to_string())
+    };
+
+    let add = "*** Begin Patch\n*** Add File: made.txt\n+made\n*** End Patch";
+    let (passed, ok) = tools.execute(&checked("1", add, "cat made.txt")).await;
+    assert!(ok && passed.contains("$ cat made.txt\nmade"), "the check saw what the patch wrote: {passed}");
+
+    let change = "*** Begin Patch\n*** Update File: made.txt\n-made\n+changed\n*** End Patch";
+    let (failed, ok) = tools.execute(&checked("2", change, "exit 3")).await;
+    assert!(ok && failed.contains("[exit status: 3]"), "{failed}");
+    assert_eq!(fs::read_to_string(root.join("made.txt")).unwrap(), "changed\n", "the patch stands");
+
+    let wrong = "*** Begin Patch\n*** Update File: made.txt\n-not there\n+x\n*** End Patch";
+    let (refused, ok) = tools.execute(&checked("3", wrong, "touch ran.txt")).await;
+    assert!(!ok && !root.join("ran.txt").exists(), "nothing applied, so nothing to check: {refused}");
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
 async fn a_patch_lands_whole_or_not_at_all() {
     let root = std::env::temp_dir().join(format!("elmee-atomic-patch-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);

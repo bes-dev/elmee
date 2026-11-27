@@ -112,7 +112,10 @@ network boundary independent of general search.
 `view_image` for PNG/JPEG/GIF/WebP content (up to 5 MiB, loaded by signature), one
 grammar-constrained `apply_patch` for every change to a file, a shell family
 (`exec`, `write_run`, `stop_run`) over durable background runs. Listing and searching are commands rather than typed tools,
-because a three-field schema is strictly less than `rg`. `write_run` both feeds
+because a three-field schema is strictly less than `rg`. `apply_patch` takes an
+optional `check`, a command run once the patch has applied and answered in the
+same result, so an edit and the test that shows it worked are one model request
+instead of two. `write_run` both feeds
 a run and collects what it has written since the last look, so following one
 needs no second verb. Once the model has viewed an image, a command whose
 output names an image it has just written inside the workspace has the last

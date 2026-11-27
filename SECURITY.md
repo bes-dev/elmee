@@ -65,7 +65,9 @@ command before every tool call; a non-zero exit blocks it and the reason goes
 back to the model. The hook sees the call as JSON on stdin and decides however
 it likes — a policy engine, a classifier, a list of paths, another model. This
 is where an external guard belongs, and it is deliberately not a policy itself:
-elmee ships none, and the default is that every call proceeds.
+elmee ships none, and the default is that every call proceeds. A guard that
+reads commands has two fields to read: `command` of `exec`, and `check` of
+`apply_patch`, which runs in the same shell once the patch has applied.
 
 **`before_completion` hooks refuse an ending.** The same mechanism on the other end,
 which is how a project makes "the tests pass" a condition of being done rather
