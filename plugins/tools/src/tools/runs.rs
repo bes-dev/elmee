@@ -169,6 +169,22 @@ pub fn abandon(cwd: &Path, id: &str) {
     });
 }
 
+/// End every one of `ids` still running: asked now, made to after a grace
+/// period. It runs from destructors, so the second step is off the runtime.
+pub fn end(cwd: &Path, ids: &[String]) {
+    let live: Vec<String> = ids.iter().filter(|id| outcome(cwd, id).is_none()).cloned().collect();
+    for id in &live {
+        let _ = stop(cwd, id, false);
+    }
+    let cwd = cwd.to_owned();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(2));
+        for id in live.iter().filter(|id| outcome(&cwd, id).is_none()) {
+            let _ = stop(&cwd, id, true);
+        }
+    });
+}
+
 fn list_in(base: &Path) -> Vec<Run> {
     let Ok(entries) = fs::read_dir(base) else { return Vec::new() };
     let mut runs: Vec<Run> = entries

@@ -659,3 +659,26 @@ async fn no_input_goes_unanswered() {
     let _ = fs::remove_dir_all(&root);
     let _ = fs::remove_dir_all(&outside);
 }
+
+/// The leak this exists for: a command an ACP session had left running went
+/// on for hours after the client had closed the session and gone.
+#[tokio::test]
+async fn a_tool_set_that_ends_its_runs_stops_them_when_it_is_dropped_and_others_keep_theirs() {
+    let root = std::env::temp_dir().join(format!("elmee-run-end-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    let start = |marker: &str| {
+        let command = format!("sleep 1; touch {}", root.join(marker).display());
+        ToolCall::new("1", "exec", serde_json::json!({"command": command, "yield_ms": 0}).to_string())
+    };
+    let mut ending = ToolSet::discover(root.clone()).unwrap();
+    ending.end_runs_with_it();
+    assert!(ending.execute(&start("ended")).await.1);
+    let mut keeping = ToolSet::discover(root.clone()).unwrap();
+    assert!(keeping.execute(&start("kept")).await.1);
+    drop(ending);
+    drop(keeping);
+    tokio::time::sleep(std::time::Duration::from_millis(1800)).await;
+    assert!(!root.join("ended").exists(), "the run outlived the session that started it");
+    assert!(root.join("kept").exists(), "a terminal's run is left to finish");
+}

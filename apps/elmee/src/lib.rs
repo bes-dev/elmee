@@ -261,6 +261,9 @@ async fn compose(
     let hooks = Hooks::discover(config.cwd.clone())?;
     let mut tools = ToolSet::discover(config.cwd.clone())?;
     tools.fit_to(config.compact_chars);
+    if config.acp {
+        tools.end_runs_with_it();
+    }
     let explain = std::env::args_os().any(|arg| arg == "--explain-plugins");
     // Whether a frontend stays to be spoken to again — a server, a terminal —
     // rather than taking one prompt and leaving.

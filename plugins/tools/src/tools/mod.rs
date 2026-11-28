@@ -46,6 +46,21 @@ pub struct ToolSet {
     /// accept images, and one that does not fails the whole request, so a
     /// picture is only shown unasked to a model that has already asked.
     viewed_image: bool,
+    /// The runs this set started, and whether they end with it. A person at
+    /// a terminal leaves a training job running on purpose; a client that
+    /// closes a session — or goes away — leaves nobody to stop what the
+    /// session started, and its runs went on for hours after the client had
+    /// finished.
+    runs: Vec<String>,
+    runs_end_with_it: bool,
+}
+
+impl Drop for ToolSet {
+    fn drop(&mut self) {
+        if self.runs_end_with_it {
+            runs::end(self.workspace.root(), &self.runs);
+        }
+    }
 }
 
 impl ToolSet {
@@ -55,7 +70,15 @@ impl ToolSet {
             definitions: definitions(),
             pictures_fit: true,
             viewed_image: false,
+            runs: Vec::new(),
+            runs_end_with_it: false,
         })
+    }
+
+    /// End the commands this set started, still running or not, when it is
+    /// dropped: for a frontend whose sessions belong to a client.
+    pub fn end_runs_with_it(&mut self) {
+        self.runs_end_with_it = true;
     }
 
     /// Size what a command's result may carry to the agent's compaction
@@ -131,7 +154,7 @@ impl ToolSet {
         match call.function.name.as_str() {
             "read" => files::read(&mut self.workspace, &parse(arguments)?),
             "apply_patch" => self.patch(parse(arguments)?).await,
-            "exec" => shell::exec(self.workspace.root(), &parse(arguments)?).await,
+            "exec" => shell::exec(self.workspace.root(), &parse(arguments)?, &mut self.runs).await,
             "write_run" => shell::feed(self.workspace.root(), &parse(arguments)?).await,
             "stop_run" => shell::stop(self.workspace.root(), &parse(arguments)?),
             name => Err(Error::Tool(format!("unknown tool: {name}"))),
@@ -150,7 +173,7 @@ impl ToolSet {
         let applied = patch::apply(&mut self.workspace, &args)?;
         let Some(command) = args.check else { return Ok(applied) };
         let check = schema::ExecArgs { command, yield_ms: None, max_output_bytes: None };
-        let output = shell::exec(self.workspace.root(), &check)
+        let output = shell::exec(self.workspace.root(), &check, &mut self.runs)
             .await
             .unwrap_or_else(|error| format!("[the check did not run: {error}]"));
         Ok(format!("{applied}\n$ {}\n{output}", check.command))

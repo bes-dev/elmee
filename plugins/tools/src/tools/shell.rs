@@ -20,11 +20,13 @@ use crate::{Result, runs};
 /// collecting and the run is already registered, so there is nothing to do but
 /// stop waiting and say how to carry on — and the agent hears about the ending
 /// through its inbox, like anything else that finishes while it is busy.
-pub(super) async fn exec(cwd: &Path, args: &ExecArgs) -> Result<String> {
+pub(super) async fn exec(cwd: &Path, args: &ExecArgs, ids: &mut Vec<String>) -> Result<String> {
     let limit = args.max_output_bytes.unwrap_or(runs::MAX_RUN_OUTPUT).min(runs::MAX_RUN_OUTPUT);
     let yield_for = args.yield_ms.map_or(*TOOL_TIMEOUT, Duration::from_millis);
     let mut started = runs::start(cwd, &args.command).await?;
     let id = started.run.id.clone();
+    ids.retain(|id| runs::outcome(cwd, id).is_none());
+    ids.push(id.clone());
     if yield_for.is_zero() {
         return Ok(format!(
             "Started run {id}; nothing is waiting on it. Use write_run to see what it writes and \
