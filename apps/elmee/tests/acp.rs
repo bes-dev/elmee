@@ -210,6 +210,10 @@ fn answer_for(request: &str, served: usize) -> serde_json::Value {
     if request.contains(LEAVE_A_FILE) && !request.contains("\"role\":\"tool\"") {
         return call("exec", serde_json::json!({ "command": "echo left > left.txt" }).to_string());
     }
+    if request.contains(LEAVE_A_COMMAND) && !request.contains("\"role\":\"tool\"") {
+        let command = "sleep 2; touch late.txt";
+        return call("exec", serde_json::json!({ "command": command, "yield_ms": 0 }).to_string());
+    }
     if request.contains("background_task_completed") {
         return said("the helper reported: done");
     }
@@ -238,6 +242,10 @@ const PEER_MESSAGE: &str = "the build is green, note it";
 
 /// The prompt whose turn writes to the working tree.
 const LEAVE_A_FILE: &str = "leave a file";
+
+/// The prompt whose turn leaves a command running that would write
+/// `late.txt` two seconds later.
+const LEAVE_A_COMMAND: &str = "leave a command running";
 
 /// The prompt whose answer changes once the person has been asked.
 const SCRIPTED_TURN: &str = "pick one";

@@ -203,7 +203,13 @@ async fn serve(acp: &Acp, cwd: PathBuf) -> Result<i32> {
     let started_in = cwd;
 
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
+    // Asked to stop is the client gone, said another way: the same ending, so
+    // what the sessions started is put away instead of left running.
+    let mut stop = Stop::new()?;
+    while let Some(Ok(Some(line))) = tokio::select! {
+        line = lines.next_line() => Some(line),
+        () = stop.asked() => None,
+    } {
         let line = line.trim();
         if line.is_empty() {
             continue;
@@ -252,6 +258,40 @@ async fn serve(acp: &Acp, cwd: PathBuf) -> Result<i32> {
     let _ = writer.await;
     Ok(0)
 }
+/// SIGINT and SIGTERM, the two ways a process is asked to end.
+struct Stop {
+    #[cfg(unix)]
+    signals: [tokio::signal::unix::Signal; 2],
+}
+
+impl Stop {
+    fn new() -> Result<Self> {
+        #[cfg(unix)]
+        {
+            use tokio::signal::unix::{SignalKind, signal};
+            let listen = |kind| {
+                signal(kind).map_err(|e| elmee_core::Error::Tool(format!("cannot listen for signals: {e}")))
+            };
+            Ok(Self { signals: [listen(SignalKind::interrupt())?, listen(SignalKind::terminate())?] })
+        }
+        #[cfg(not(unix))]
+        Ok(Self {})
+    }
+
+    async fn asked(&mut self) {
+        #[cfg(unix)]
+        {
+            let [interrupt, terminate] = &mut self.signals;
+            tokio::select! {
+                _ = interrupt.recv() => {}
+                _ = terminate.recv() => {}
+            }
+        }
+        #[cfg(not(unix))]
+        std::future::pending::<()>().await;
+    }
+}
+
 async fn dispatch(
     acp: &Acp,
     server: &mut Connection,

@@ -12,4 +12,4 @@ elmee-core = { version = "0.1.0", path = "../../core" }
 elmee-host = { version = "0.1.0", path = "../host", default-features = false }
 elmee-plugin-tools = { version = "0.1.0", path = "../tools" }
 serde_json = "1"
-tokio = { version = "1", features = ["io-std", "io-util", "macros", "rt", "sync", "time"] }
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "rt", "signal", "sync", "time"] }

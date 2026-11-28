@@ -81,7 +81,7 @@ What the handshake declares, and what each one is for:
 | `list` | `session/list` | The conversations kept for a directory, by title, newest first. |
 | `resume` | `session/resume`, `session/load` | A kept conversation taken up again, with or without the replay. |
 | `fork` | `session/fork` | An independent copy of an idle conversation. |
-| `close` | `session/close` | The agent, its MCP servers and its children released, and every command it started that is still running ended — as they all are when the client closes stdin. |
+| `close` | `session/close` | The agent, its MCP servers and its children released, and every command it started that is still running ended — as they all are when the client closes stdin or the process is sent SIGINT or SIGTERM. |
 | `delete` | `session/delete` | A closed conversation and everything kept beside it removed. |
 | `status` | `session/status` | Whether a conversation is `open` in this process or only `saved`. |
 | `title` | `session/set_title` | A name in place of the first prompt, for an open or a saved conversation. |

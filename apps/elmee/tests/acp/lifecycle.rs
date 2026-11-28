@@ -181,3 +181,30 @@ fn an_old_cancelled_turn_cannot_release_a_resumed_instance_of_the_same_session()
     assert_eq!(cancelled["result"]["stopReason"], "cancelled");
     assert!(start.elapsed() < Duration::from_secs(1));
 }
+
+/// The leak these exist for: a command a session left running went on for
+/// hours after its client had closed the session, gone away, or been stopped.
+#[test]
+fn a_command_a_session_left_running_ends_when_the_session_closes_or_the_agent_is_told_to_stop() {
+    for how in ["close", "terminate"] {
+        let (home, work) = scratch(&format!("leftover-{how}"));
+        let mut client = Client::start(&home, &work, &serve_scripted(), &[]);
+        client.hello();
+        let session = client.open(&work);
+        let asked = client.send(
+            "session/prompt",
+            json!({ "sessionId": session, "prompt": [{ "type": "text", "text": LEAVE_A_COMMAND }] }),
+        );
+        client.wait(asked);
+        if how == "close" {
+            let closed = client.send("session/close", json!({ "sessionId": session }));
+            client.wait(closed);
+        } else {
+            let pid = client.process.id().to_string();
+            assert!(Command::new("kill").arg(&pid).status().unwrap().success());
+            assert!(client.hang_up(Duration::from_secs(5)).is_some(), "the agent ends when told to");
+        }
+        std::thread::sleep(Duration::from_millis(2600));
+        assert!(!work.join("late.txt").exists(), "the command outlived the session ({how})");
+    }
+}
