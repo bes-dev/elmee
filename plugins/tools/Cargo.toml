@@ -26,4 +26,3 @@ rustix = { version = "1.1.4", features = ["process"] }
 [dev-dependencies]
 elmee-plugin-goal = { version = "0.1.0", path = "../goal" }
 elmee-plugin-project = { version = "0.1.0", path = "../project" }
-elmee-plugin-web = { version = "0.1.0", path = "../web" }

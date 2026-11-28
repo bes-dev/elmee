@@ -80,28 +80,6 @@ Owns what a repository teaches an agent:
 `MemoryPlugin` combines a model handler with prompt middleware because storage
 and its injection policy form one feature.
 
-### `plugins/search`
-
-**Role:** handler.
-
-Normalizes web-search results from explicitly configured SearXNG, Brave or
-Tavily backends. Search-provider selection is declared rather than inferred by
-probing. Other search mechanisms can enter through MCP.
-
-### `plugins/web`
-
-**Role:** handler.
-
-Provides bounded `web_fetch` retrieval with DNS resolution checks, private
-address rejection, per-hop redirect validation, address pinning, time and byte
-limits, HTML extraction and untrusted-content fencing. By default it returns
-bounded source text with byte offsets for continuation, without a model call.
-Only explicit `summarize=true` with a question asks for an additional billed
-model completion; that completion receives no tool schemas.
-
-The crate is separate because SSRF safety and HTTP behavior form a substantial
-network boundary independent of general search.
-
 ## Local work and extension mechanisms
 
 ### `plugins/tools`

@@ -171,13 +171,11 @@ independent contributor appears whose content is not about one tool.
 ```text
 selected model provider
     + built-in coding ToolSet
-    + optional web search
     + project hooks
     + workspace service with snapshots
     + project memory
     + per-directory project directives
     + standing goals
-    + optional web fetch
     + JSONL or memory session
     + optional shared token ledger
     + snapshots

@@ -176,8 +176,6 @@ struct Assembled {
     config: Config,
     system_prompt: String,
     model_aliases: elmee_plugin_provider::registry::ModelAliases,
-    /// Where `web_search` goes, when anywhere.
-    search: Option<elmee_plugin_search::Backend>,
 }
 
 /// A command line and a machine's configuration, turned into everything a turn
@@ -195,7 +193,6 @@ async fn assemble_with(mut config: Config) -> Result<Assembled> {
         tokio::io::stdin().read_to_string(&mut buffer).await?;
         config.prompt = Some(buffer.trim().to_owned());
     }
-    let registry_search = elmee_plugin_search::configured()?;
     let selected = registry::select(&config.cwd, config.model.clone(), elmee_host::last_model())?;
     config.model = Some(selected.spec);
     // A one-shot run asks at once; anything else has a moment first.
@@ -243,13 +240,7 @@ async fn assemble_with(mut config: Config) -> Result<Assembled> {
         system_prompt.push_str("\n\n");
         system_prompt.push_str(extra);
     }
-    Ok(Assembled {
-        provider: selected.provider,
-        config,
-        system_prompt,
-        model_aliases: selected.aliases,
-        search: registry_search,
-    })
+    Ok(Assembled { provider: selected.provider, config, system_prompt, model_aliases: selected.aliases })
 }
 
 /// One assembled agent, ready to be driven. Separated from the frontend choice
@@ -258,7 +249,7 @@ async fn assemble_with(mut config: Config) -> Result<Assembled> {
 async fn compose(
     assembled: Assembled,
 ) -> Result<(Driver, tokio::sync::mpsc::UnboundedReceiver<elmee_host::RuntimeEvent>)> {
-    let Assembled { provider, mut config, system_prompt, model_aliases, search } = assembled;
+    let Assembled { provider, mut config, system_prompt, model_aliases } = assembled;
     if config.max_tokens > 0 && config.token_ledger.is_none() {
         config.token_ledger = Some(match &config.session {
             Some(session) => session.with_extension("tokens"),
@@ -289,7 +280,6 @@ async fn compose(
             tools.add_host_tools(host);
         }
     }
-    let search = offered("web_search").then(|| search.map(elmee_plugin_search::SearchPlugin::new)).flatten();
     let session = if explain {
         elmee_core::session::Session::memory()
     } else {
@@ -305,9 +295,6 @@ async fn compose(
     provider.context().set(session.path().or(Some(&config.cwd)));
     builder.plugin(provider)?;
     builder.plugin(tools)?;
-    if let Some(search) = search {
-        builder.plugin(search)?;
-    }
     builder.plugin(hooks)?;
     builder.plugin(
         elmee_plugin_tools::WorkspacePlugin::new(config.cwd.clone())
@@ -325,9 +312,6 @@ async fn compose(
     // that ends a goal would be schema sent with every request for nothing.
     if offered(elmee_plugin_goal::DONE_TOOL) && (config.prompt.is_none() || config.goal.is_some()) {
         builder.plugin(elmee_plugin_goal::GoalPlugin::default())?;
-    }
-    if offered("web_fetch") {
-        builder.plugin(elmee_plugin_web::WebPlugin)?;
     }
     builder.plugin(session)?;
     if let Some(path) = config.token_ledger.clone() {

@@ -63,8 +63,8 @@ pub fn middle(text: &str, limit: usize) -> String {
 
 /// Quote `body` inside a block it cannot end.
 ///
-/// The agent hands the model seven kinds of text it did not write: a fetched
-/// page, search results, a command's output, another agent's message, a child's
+/// The agent hands the model many kinds of text it did not write: an MCP
+/// tool's result, a file's instructions, another agent's message, a child's
 /// report, an external trigger's payload. Each goes inside a named block that
 /// says where it starts and stops — and that block is a boundary only if what
 /// is inside cannot write the closing tag. Otherwise a page ends its own
@@ -72,9 +72,9 @@ pub fn middle(text: &str, limit: usize) -> String {
 /// injection.
 ///
 /// Neutralising that one string is the entire fence. It lives here because it
-/// was done at three of those seven sites and forgotten at the other four:
-/// a rule kept at the call site is a rule that is followed until someone adds
-/// the eighth frame.
+/// was once done at some of those sites and forgotten at the others: a rule
+/// kept at the call site is a rule that is followed until someone adds the
+/// next frame.
 pub fn fenced(tag: &str, attributes: &str, body: &str) -> String {
     let close = format!("</{tag}>");
     format!("<{tag}{attributes}>\n{}\n{close}", body.replace(&close, &format!("<\\/{tag}>")))

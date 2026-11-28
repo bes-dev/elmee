@@ -379,7 +379,7 @@ fn unknown_arguments_are_refused_and_help_is_not_an_error() {
     let restricted_text = String::from_utf8_lossy(&restricted.stdout);
     assert!(restricted.status.success(), "{}", String::from_utf8_lossy(&restricted.stderr));
     assert!(restricted_text.contains("tool read: tools"), "{restricted_text}");
-    for forbidden in ["tool exec:", "tool web_fetch:", "tool web_search:", "tool mcp__"] {
+    for forbidden in ["tool exec:", "tool apply_patch:", "tool mcp__"] {
         assert!(!restricted_text.contains(forbidden), "{forbidden} escaped --tools:\n{restricted_text}");
     }
 

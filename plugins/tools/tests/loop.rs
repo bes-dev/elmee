@@ -79,7 +79,6 @@ fn plugins(cwd: &std::path::Path) -> elmee_core::Registry {
     plugins.install(WorkspacePlugin::new(cwd).with_snapshots()).unwrap();
     plugins.install(elmee_plugin_project::MemoryPlugin::new(cwd)).unwrap();
     plugins.install(elmee_plugin_goal::GoalPlugin::default()).unwrap();
-    plugins.install(elmee_plugin_web::WebPlugin).unwrap();
     plugins
 }
 

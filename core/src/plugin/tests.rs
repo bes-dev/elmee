@@ -110,7 +110,7 @@ struct ToolPlugin {
 fn a_tool_filter_applies_across_independent_handlers() {
     let mut registry = Registry::new();
     registry.install(ToolPlugin { id: "alpha", tool: "read" }).unwrap();
-    registry.install(ToolPlugin { id: "beta", tool: "web_fetch" }).unwrap();
+    registry.install(ToolPlugin { id: "beta", tool: "lookup" }).unwrap();
     registry.allow_tools(&["read".into()]).unwrap();
     registry.resolve().unwrap();
     assert_eq!(registry.definitions().len(), 1);
@@ -125,7 +125,7 @@ fn a_tool_filter_is_independent_of_declaration_order() {
             registry.allow_tools(&["read".into()]).unwrap();
         }
         registry.install(ToolPlugin { id: "alpha", tool: "read" }).unwrap();
-        registry.install(ToolPlugin { id: "beta", tool: "web_fetch" }).unwrap();
+        registry.install(ToolPlugin { id: "beta", tool: "lookup" }).unwrap();
         if !filter_first {
             registry.allow_tools(&["read".into()]).unwrap();
         }

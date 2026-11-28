@@ -46,8 +46,9 @@ fn roots(cwd: &Path) -> Vec<PathBuf> {
 /// and told what not to do with it, and it is not offered the editor at all.
 ///
 /// It names only tools that always exist. `--tools` is checked against the
-/// composition, so a built-in role that mentioned `web_search` would fail to
-/// launch wherever no search backend is configured.
+/// composition, so a built-in role that mentioned a tool only some
+/// compositions have — one an MCP server brings — would fail to launch
+/// wherever it is absent.
 fn built_in(name: &str) -> Option<&'static str> {
     match name {
         "research" => Some(

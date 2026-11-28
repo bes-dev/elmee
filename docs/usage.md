@@ -117,21 +117,13 @@ list.
 
 ## Web pages
 
-`web_fetch` returns extracted source text without an extra model request.
-Output defaults to 8 KiB; use its returned byte `offset` to continue, or
-request `max_output_bytes` up to 50 KiB. To deliberately spend an additional
-model call answering a question from the page, set `summarize: true` and
-provide `prompt`. A question alone does not enable summarization. Summary
-input is bounded to 256 KiB and uses the same byte offsets for continuation.
-
-For pages that need a real browser — a site that refuses plain requests, a
-page drawn by JavaScript, a form — install
-[browser-cmd](https://github.com/elmyx-labs/browser-cmd). Its installer puts
-its skill in `~/.agents/skills`, where elmee finds it, and the model drives
-Chrome through `exec`. With no `search` backend in `~/.elmee/models.json`,
-`web_search` is not offered and the model searches in the browser; to make
-the browser the only way to the web, leave `web_fetch` out as well:
-`--tools exec,read,apply_patch,view_image`.
+elmee has no web tools of its own. Reading and searching the web is one
+tool's job, and that tool is a browser:
+[browser-cmd](https://github.com/elmyx-labs/browser-cmd) installs its skill in
+`~/.agents/skills`, where elmee finds it, and the model drives Chrome through
+`exec` — reading pages as extracted text, searching, filling forms, and pages
+drawn by JavaScript alike. A search API you would rather use comes in as an
+MCP server.
 
 ## Process commands
 

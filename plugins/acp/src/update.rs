@@ -23,8 +23,6 @@ fn kind(tool: &str, changes: &[Change]) -> &'static str {
         "apply_patch" if changes.iter().any(|change| change.move_to.is_some()) => "move",
         "apply_patch" => "edit",
         "exec" | "write_run" | "stop_run" => "execute",
-        "web_search" => "search",
-        "web_fetch" => "fetch",
         "plan" | "goal_done" => "think",
         _ => "other",
     }

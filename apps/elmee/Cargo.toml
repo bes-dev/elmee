@@ -32,11 +32,9 @@ elmee-plugin-mcp = { version = "0.1.0", path = "../../plugins/mcp" }
 elmee-plugin-mesh = { version = "0.1.0", path = "../../plugins/mesh", optional = true }
 elmee-plugin-project = { version = "0.1.0", path = "../../plugins/project" }
 elmee-plugin-provider = { version = "0.1.0", path = "../../plugins/provider" }
-elmee-plugin-search = { version = "0.1.0", path = "../../plugins/search" }
 elmee-plugin-session = { version = "0.1.0", path = "../../plugins/session" }
 elmee-plugin-snapshot = { version = "0.1.0", path = "../../plugins/snapshot" }
 elmee-plugin-tools = { version = "0.1.0", path = "../../plugins/tools" }
-elmee-plugin-web = { version = "0.1.0", path = "../../plugins/web" }
 serde_json = "1"
 tokio = { version = "1", features = ["io-std", "io-util", "macros", "rt", "time"] }
 

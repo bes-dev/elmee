@@ -247,11 +247,9 @@ dependencies = [
  "elmee-plugin-paths",
  "elmee-plugin-project",
  "elmee-plugin-provider",
- "elmee-plugin-search",
  "elmee-plugin-session",
  "elmee-plugin-snapshot",
  "elmee-plugin-tools",
- "elmee-plugin-web",
  "jsonschema",
  "serde_json",
  "tokio",
@@ -427,16 +425,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "elmee-plugin-search"
-version = "0.1.0"
-dependencies = [
- "elmee-core",
- "reqwest",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "elmee-plugin-session"
 version = "0.1.0"
 dependencies = [
@@ -466,20 +454,8 @@ dependencies = [
  "elmee-plugin-process",
  "elmee-plugin-project",
  "elmee-plugin-snapshot",
- "elmee-plugin-web",
  "ring",
  "rustix",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "elmee-plugin-web"
-version = "0.1.0"
-dependencies = [
- "elmee-core",
- "reqwest",
  "serde",
  "serde_json",
  "tokio",

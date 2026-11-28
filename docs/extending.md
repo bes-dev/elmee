@@ -224,7 +224,7 @@ safe to run in CI.
 
 - normalized manifest is stable across installation permutations;
 - every required service has the intended cardinality;
-- tool allowlists cover kernel, built-in, web and MCP names;
+- tool allowlists cover kernel, built-in and MCP names;
 - explain mode is inert;
 - removing an optional plugin changes only its declared capability and explicit
   integrations.
