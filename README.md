@@ -26,15 +26,15 @@ elmee --acp                                       # an engine for your applicati
 
 Because the others are applications, and this one is a part.
 
-| Measured on one machine, 2026-11-27 | elmee | pi | Codex | Claude Code |
+| Measured on one machine, 2026-11-28 | elmee | pi | Codex | Claude Code |
 | --- | ---: | ---: | ---: | ---: |
-| On disk | 4.9 MB | 149 MB + Node | 291 MB | 366 MB |
-| Ready to take a prompt, as a server | 5 ms | ≈150 ms | 134 ms | 310 ms |
-| A second session in the same process | 0.9 ms | — | 5.4 ms | 115 ms |
-| Memory while idle, as a server | 8 MB | 172 MB | 244 MB | 732 MB |
-| Overhead of one text turn | 9 ms | 154 ms | 161 ms | 156 ms |
-| A warm turn, as a server | 0.8 ms | 1.3 ms | 14.5 ms | 10.1 ms |
-| Overhead of one tool call | 2.3 ms | 4.4 ms | 8.6 ms | 88 ms |
+| On disk | 4.8 MB | 149 MB + Node | 291 MB | 366 MB |
+| Ready to take a prompt, as a server | 5 ms | ≈150 ms | 133 ms | 314 ms |
+| A second session in the same process | 0.9 ms | — | 6.7 ms | 119 ms |
+| Memory while idle, as a server | 7 MB | 156 MB | 231 MB | 686 MB |
+| Overhead of one text turn | 10 ms | 155 ms | 153 ms | 162 ms |
+| A warm turn, as a server | 0.7 ms | 1.5 ms | 14.6 ms | 10.1 ms |
+| Overhead of one tool call | 2.3 ms | 4.8 ms | 9.5 ms | 87 ms |
 
 The scripts, the method and the raw results are in
 [`benchmarks/harnesses`](benchmarks/harnesses) (Codex 0.172, Claude Code
@@ -128,7 +128,8 @@ it, with not one line of agent loop of its own.
 ## What is in the box
 
 - **Tools**: read, a patch that can carry the command that checks it, shell
-  with background runs, image viewing, web fetch and search.
+  with background runs, and image viewing. The web is a browser's job,
+  reached through its [skill](docs/usage.md#web-pages).
 - **[MCP](docs/customization.md#mcp)** over stdio and Streamable HTTP — and,
   embedded, over the connection the client already has.
 - **[Skills](docs/customization.md)** as plain `SKILL.md` files that are also
